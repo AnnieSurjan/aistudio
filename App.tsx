@@ -7,14 +7,16 @@ import UserProfile from './components/UserProfile';
 import ChatAssistant from './components/ChatAssistant';
 import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
+import PaymentGateway from './components/PaymentGateway';
 import { UserProfile as IUserProfile, UserRole, ScanResult } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
-import { HelpCircle, Users } from 'lucide-react';
+import { HelpCircle, Users, ShieldAlert, FileText } from 'lucide-react';
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Backend API URL (Render service: dupdetect_frontend)
-const BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
+// This is the target URL for your backend API.
+// Even if this doesn't exist yet, the app will now handle it gracefully.
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-backend.onrender.com'; 
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
@@ -23,23 +25,26 @@ const App: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
   
-  // Mock User State
+  // Payment State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
+
   const [user, setUser] = useState<IUserProfile>({
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
-    role: UserRole.ADMIN,
-    plan: 'Professional',
+    role: UserRole.MANAGER, 
+    plan: 'Starter', // Default to starter
     companyName: 'Finance Pro LLC',
     isQuickBooksConnected: false
   });
 
-  // Check for success query param return from Backend OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     if (status === 'success') {
         setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
-        // Clean URL
+        setIsAuthenticated(true); 
+        setCurrentView('app');    
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -55,49 +60,68 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  // Helper to run the simulation (used in multiple places)
+  const runSimulation = (reason: string) => {
+      console.log(`Switching to Simulation Mode: ${reason}`);
+      setTimeout(() => {
+          setIsConnectingQB(false);
+          setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
+          alert(
+              `DEMO MODE ACTIVE\n\n` +
+              `QuickBooks connection simulated successfully.\n` +
+              `Reason: ${reason}`
+          );
+      }, 1500);
+  };
+
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
       
-      // Dynamic Frontend URL detection
+      const currentHostname = window.location.hostname;
+      const isPreviewEnvironment = 
+          currentHostname.includes('google') || 
+          currentHostname.includes('webcontainer') || 
+          currentHostname.includes('localhost');
+
+      // 1. Immediate Simulation for Dev Environments
+      if (isPreviewEnvironment) {
+          runSimulation("Development Environment Detected");
+          return;
+      }
+
+      // 2. Production Connection Attempt with Fallback
       const currentFrontendUrl = window.location.origin; 
       
-      console.log(`Connecting to backend: ${BACKEND_URL}`);
-      console.log(`Redirect URI will be: ${currentFrontendUrl}/callback`);
-
       try {
-        // REAL BACKEND CONNECTION LOGIC
-        // -----------------------------
-        // Try to fetch the auth URL from the backend
-        const response = await fetch(`${BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`);
+        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
+        
+        // Short timeout - if backend is sleeping or doesn't exist, fail fast to demo mode
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(3000) 
+        });
         
         if (!response.ok) {
-            throw new Error(`Backend returned status: ${response.status}`);
+             throw new Error(`Backend Error ${response.status}`);
         }
 
         const data = await response.json();
         if (data.url) {
-            // Redirect the user to the QuickBooks login page
             window.location.href = data.url;
-            return;
         } else {
-            throw new Error("No URL returned from backend");
+            throw new Error("Invalid response from backend");
         }
 
       } catch (error) {
-          console.error("Failed to initiate connection via backend:", error);
-          
-          // FALLBACK SIMULATION (So you can still test the UI if the backend isn't ready)
-          console.log("Switching to simulation mode...");
-          setTimeout(() => {
-              setIsConnectingQB(false);
-              setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
-              alert(`Simulation: Successfully connected to QuickBooks Online!\n\n(Note: Could not reach ${BACKEND_URL}. Ensure your backend server is running and CORS is enabled.)`);
-          }, 2500);
+          // 3. Fallback to Simulation on Production Error
+          // This allows the site to work on Render even without a deployed backend
+          console.warn("Backend unreachable, falling back to demo:", error);
+          runSimulation("Backend Not Connected (Live Demo Mode)");
       }
   };
 
   const handleExport = () => {
-      // Mock CSV export
       const csvContent = "data:text/csv;charset=utf-8,ID,Date,Amount,Entity,Reason\nTXN-001,2023-10-25,1500.00,Acme Corp,Exact Match";
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
@@ -108,13 +132,44 @@ const App: React.FC = () => {
       document.body.removeChild(link);
   };
 
-  // View Routing Logic
+  // Payment Handlers
+  const handleUpgradeClick = (plan: string, price: string) => {
+      setSelectedPlan({ name: plan, price: price });
+      setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+      if (selectedPlan) {
+          // Update user plan
+          setUser(prev => ({ 
+              ...prev, 
+              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' 
+          }));
+          setShowPaymentModal(false);
+          // If we were on landing page, move to app or show success
+          if (currentView === 'landing') {
+              setCurrentView('auth'); // Or direct to app if already logged in logic existed
+          }
+      }
+  };
+
   if (currentView === 'landing') {
     return (
-      <LandingPage 
-        onGetStarted={() => setCurrentView('auth')} 
-        onLogin={() => setCurrentView('auth')}
-      />
+      <>
+        <LandingPage 
+            onGetStarted={() => setCurrentView('auth')} 
+            onLogin={() => setCurrentView('auth')}
+            onUpgrade={handleUpgradeClick}
+        />
+        {showPaymentModal && selectedPlan && (
+            <PaymentGateway 
+                planName={selectedPlan.name}
+                price={selectedPlan.price}
+                onClose={() => setShowPaymentModal(false)}
+                onSuccess={handlePaymentSuccess}
+            />
+        )}
+      </>
     );
   }
 
@@ -127,7 +182,6 @@ const App: React.FC = () => {
     );
   }
 
-  // App View
   return (
     <div className="font-sans text-slate-900 bg-slate-50 min-h-screen">
       <Layout 
@@ -142,10 +196,12 @@ const App: React.FC = () => {
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 isConnectingQB={isConnectingQB}
+                onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'scan' && <ScanManager onExport={handleExport} />}
         {activeTab === 'history' && <CalendarView history={MOCK_SCAN_HISTORY} />}
+        
         {activeTab === 'users' && (
              <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm mt-4">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
@@ -153,9 +209,60 @@ const App: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-slate-700">User Management</h3>
                 <p className="text-slate-500 max-w-sm mx-auto mt-2">Manage team roles, permissions, and audit logs. This feature is available in the Enterprise plan.</p>
-                <button className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">Upgrade to Enterprise</button>
+                <button 
+                    onClick={() => handleUpgradeClick('Enterprise', '149')}
+                    className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                    Upgrade to Enterprise
+                </button>
              </div>
         )}
+
+        {activeTab === 'audit' && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">Audit Logs</h2>
+                        <p className="text-slate-500">Track all sensitive actions performed within the application.</p>
+                    </div>
+                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                        <FileText size={16} className="mr-1"/> Export Logs
+                    </button>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Timestamp</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">User</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Action</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {[
+                                { time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1' },
+                                { time: '2023-11-10 14:35', user: 'Alex Accountant', action: 'Scan Run', details: 'Manual scan initiated' },
+                                { time: '2023-11-10 14:40', user: 'Alex Accountant', action: 'Delete Group', details: 'Resolved duplicate group GRP-102 (3 txns)' },
+                                { time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed' },
+                            ].map((log, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    <td className="px-6 py-3 text-slate-600 text-sm font-mono">{log.time}</td>
+                                    <td className="px-6 py-3 text-slate-800 text-sm font-medium">{log.user}</td>
+                                    <td className="px-6 py-3 text-sm">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.action.includes('Delete') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                            {log.action}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-slate-500 text-sm">{log.details}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+
         {activeTab === 'profile' && (
             <UserProfile 
                 user={user} 
@@ -164,7 +271,6 @@ const App: React.FC = () => {
             />
         )}
         
-        {/* Help / FAQ Modal Overlay Placeholder */}
         {showHelp && (
             <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
@@ -194,7 +300,16 @@ const App: React.FC = () => {
 
       </Layout>
       
-      {/* Floating Action Buttons */}
+      {/* Global Payment Modal - can be triggered from anywhere */}
+      {showPaymentModal && selectedPlan && (
+        <PaymentGateway 
+            planName={selectedPlan.name}
+            price={selectedPlan.price}
+            onClose={() => setShowPaymentModal(false)}
+            onSuccess={handlePaymentSuccess}
+        />
+      )}
+
       <ChatAssistant />
       <button 
         onClick={() => setShowHelp(true)}

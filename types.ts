@@ -1,5 +1,7 @@
+
 export enum UserRole {
   ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
   VIEWER = 'VIEWER',
 }
 
@@ -50,4 +52,13 @@ export interface UserProfile {
   plan: 'Starter' | 'Professional' | 'Enterprise';
   companyName: string;
   isQuickBooksConnected?: boolean;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  isRead: boolean;
+  time: string;
 }
