@@ -77,9 +77,9 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ isOpen, onClose }) => {
 const FaqTab = () => {
     const faqs = [
         { q: "How does duplicate detection work?", a: "We analyze transaction dates, amounts, vendors, and memos. We also use fuzzy logic to find amounts within a $1.00 variance and similar vendor names." },
-        { q: "Is deleting transactions safe?", a: "Yes. Dup-Detect creates a secure local backup of every transaction group before resolution. You can undo any action from the 'Scan History' page." },
+        { q: "Is deleting transactions safe?", a: "Yes. DupDetect creates a secure local backup of every transaction group before resolution. You can undo any action from the 'Scan History' page." },
         { q: "Do you support multi-currency?", a: "Absolutely. We support all ISO currencies including USD, EUR, and HUF. The system matches transactions within the same currency group." },
-        { q: "How do I connect multiple QuickBooks files?", a: "Upgrade to the 'Professional' plan to manage up to 5 company files under a single login." },
+        { q: "How do I connect multiple QuickBooks accounts?", a: "Upgrade to the 'Professional' plan to manage up to 5 QuickBooks accounts under a single login." },
     ];
 
     return (
@@ -108,7 +108,7 @@ const FaqTab = () => {
 
 const AiSupportTab = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([
-        { id: '1', role: 'model', text: 'Hi! I am the Dup-Detect Support AI. Describe your issue, and I will try to help you solve it immediately.', timestamp: new Date() }
+        { id: '1', role: 'model', text: 'Hi! I am the DupDetect Support AI. Describe your issue, and I will try to help you solve it immediately.', timestamp: new Date() }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);

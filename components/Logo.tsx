@@ -21,10 +21,10 @@ const Logo: React.FC<LogoProps> = ({ variant = 'dark', className = '' }) => {
         </div>
       </div>
       <div>
-        <h1 className={`text-xl font-bold tracking-tight leading-none ${textColor}`}>
+        <h1 className={`text-2xl font-bold tracking-tight leading-none ${textColor}`}>
           Dup<span className="text-blue-600">Detect</span>
         </h1>
-        <p className={`text-[10px] font-medium tracking-wide uppercase ${subTextColor}`}>
+        <p className={`text-xs font-medium tracking-wide uppercase ${subTextColor}`}>
           QuickBooks Security
         </p>
       </div>

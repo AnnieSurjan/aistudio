@@ -7,6 +7,7 @@ interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
   isConnectingQB?: boolean;
+  onManagePlan?: () => void;
 }
 
 // Mock data for existing team members
@@ -15,7 +16,7 @@ const MOCK_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, isConnectingQB }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, isConnectingQB, onManagePlan }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -133,7 +134,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
                          <CreditCard className="text-slate-400" size={20}/>
                          <span className="text-slate-800 font-medium">{user.plan} Plan</span>
                     </div>
-                    <button className="text-blue-600 text-sm font-medium hover:underline">Manage</button>
+                    <button 
+                        onClick={onManagePlan}
+                        className="text-blue-600 text-sm font-medium hover:underline"
+                    >
+                        Manage
+                    </button>
                 </div>
             </div>
         </div>

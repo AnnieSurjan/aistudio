@@ -311,6 +311,16 @@ const App: React.FC = () => {
                 user={user} 
                 onConnectQuickBooks={handleConnectQuickBooks}
                 isConnectingQB={isConnectingQB}
+                onManagePlan={() => {
+                   if (user.plan === 'Starter') {
+                       handleUpgradeClick('Professional', '49');
+                   } else if (user.plan === 'Professional') {
+                       handleUpgradeClick('Enterprise', '149');
+                   } else {
+                       const portal = window.confirm("You are on the highest tier. Open Customer Billing Portal?");
+                       if(portal) handleAddAuditLog('Billing', 'User accessed billing portal', 'info');
+                   }
+                }}
             />
         )}
         

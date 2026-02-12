@@ -10,7 +10,7 @@ const ChatAssistant: React.FC = () => {
     {
       id: 'welcome',
       role: 'model',
-      text: 'Hello! I am your Dup-Detect AI assistant. How can I help you manage your QuickBooks transactions today?',
+      text: 'Hello! I am your DupDetect AI assistant. How can I help you manage your QuickBooks transactions today?',
       timestamp: new Date()
     }
   ]);
@@ -60,7 +60,7 @@ const ChatAssistant: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `dup-detect-chat-log-${new Date().toISOString()}.txt`;
+    a.download = `dupdetect-chat-log-${new Date().toISOString()}.txt`;
     a.click();
   };
 
@@ -81,7 +81,7 @@ const ChatAssistant: React.FC = () => {
       <div className="bg-slate-900 text-white p-4 flex justify-between items-center cursor-pointer" onClick={() => !isMinimized && setIsMinimized(!isMinimized)}>
         <div className="flex items-center space-x-2">
             <Bot size={20} className="text-blue-400"/>
-            <span className="font-semibold">Dup-Detect AI</span>
+            <span className="font-semibold">DupDetect AI</span>
         </div>
         <div className="flex items-center space-x-2">
              <button onClick={(e) => { e.stopPropagation(); exportChat(); }} className="hover:text-blue-300" title="Export Chat">

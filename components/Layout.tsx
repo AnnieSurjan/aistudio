@@ -56,7 +56,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   });
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-100 overflow-hidden">
       {/* Sidebar - Dark Mode */}
       <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-white flex flex-col transition-transform duration-300 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-xl`}>
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
@@ -134,7 +134,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Header (Mobile & Desktop Utilities) */}
-        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 z-20 shrink-0">
+        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 z-20 shrink-0 shadow-sm">
             <div className="flex items-center md:hidden">
                 <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 mr-3">
                     <Menu size={24} />
@@ -144,7 +144,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
 
             {/* Desktop Header Title (hidden on mobile to save space) */}
             <div className="hidden md:block">
-                <h2 className="text-lg font-semibold text-slate-800 capitalize">
+                <h2 className="text-2xl font-bold text-slate-800 capitalize">
                     {menuItems.find(i => i.id === activeTab)?.label || 'Dup-Detect'}
                 </h2>
             </div>
@@ -197,8 +197,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
             </div>
         </header>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50 relative scroll-smooth">
+        {/* Scrollable Content with Darker Soft Gradient Background */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-gradient-to-br from-slate-100 via-blue-100/40 to-indigo-100/40 relative scroll-smooth">
           <div className="max-w-7xl mx-auto">
              {children}
           </div>
