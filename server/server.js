@@ -9,6 +9,8 @@ const PORT = process.env.PORT || 3001;
 // A Google AI Studio frontend vagy barmilyen mas frontend URL-je
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://aistudio.google.com',
+  'https://ai.studio',
   'http://localhost:3000',
   'http://localhost:5173',
 ].filter(Boolean);
