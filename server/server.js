@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -89,9 +90,13 @@ app.get('/', (req, res) => {
   });
 });
 
-// --- 404 handler ---
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+// --- Frontend static files ---
+const distPath = path.join(__dirname, '..', 'dist');
+app.use(express.static(distPath));
+
+// SPA catch-all: minden nem-API route-ra a frontend index.html-t kuldjuk
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // --- Error handler ---
