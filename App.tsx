@@ -26,8 +26,13 @@ const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
 ];
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+    // Restore view if user was authenticated before OAuth redirect
+    return localStorage.getItem('dd_authenticated') === 'true' ? 'app' : 'landing';
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('dd_authenticated') === 'true';
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
@@ -60,20 +65,34 @@ const App: React.FC = () => {
       setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // Handle OAuth callback redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     if (status === 'success') {
         setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
-        setIsAuthenticated(true); 
-        setCurrentView('app');    
-        window.history.replaceState({}, document.title, window.location.pathname);
+        setIsAuthenticated(true);
+        setCurrentView('app');
+        localStorage.setItem('dd_authenticated', 'true');
+        handleAddAuditLog('Connection', 'QuickBooks Online connected successfully', 'success');
+    } else if (status === 'error') {
+        // OAuth failed but keep user logged in if they were before
+        const errorMsg = params.get('error') || 'Unknown error';
+        console.warn('[QB OAuth] Error:', errorMsg);
+        if (isAuthenticated) {
+          setCurrentView('app');
+        }
+    }
+    // Clean up URL params
+    if (status) {
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('app');
+    localStorage.setItem('dd_authenticated', 'true');
     // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
@@ -90,6 +109,7 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
+    localStorage.removeItem('dd_authenticated');
   };
 
   // Helper to run the simulation (used in multiple places)

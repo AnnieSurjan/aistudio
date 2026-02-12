@@ -82,19 +82,21 @@ router.get('/quickbooks/callback', async (req, res) => {
 
     if (oauthError) {
       console.error('[Auth] OAuth error from Intuit:', oauthError);
-      return redirectToFrontend(res, state, 'error', `OAuth denied: ${oauthError}`);
+      return redirectToFrontend(res, '', 'error', `OAuth denied: ${oauthError}`);
     }
 
     if (!code || !realmId) {
-      return redirectToFrontend(res, state, 'error', 'Missing code or realmId');
+      return redirectToFrontend(res, '', 'error', 'Missing code or realmId');
     }
 
     // Validate CSRF state
     const stateData = pendingStates.get(state);
     if (!stateData) {
       console.error('[Auth] Invalid or expired state token');
-      return redirectToFrontend(res, null, 'error', 'Invalid state token');
+      return redirectToFrontend(res, '', 'error', 'Invalid state token');
     }
+    // Save frontend redirect before deleting state
+    const frontendRedirect = stateData.frontendRedirect || '';
     pendingStates.delete(state);
 
     // Exchange authorization code for tokens
@@ -123,7 +125,7 @@ router.get('/quickbooks/callback', async (req, res) => {
     if (!tokenRes.ok) {
       const errorBody = await tokenRes.text();
       console.error('[Auth] Token exchange failed:', tokenRes.status, errorBody);
-      return redirectToFrontend(res, state, 'error', 'Token exchange failed');
+      return redirectToFrontend(res, frontendRedirect, 'error', 'Token exchange failed');
     }
 
     const tokens = await tokenRes.json();
@@ -132,62 +134,69 @@ router.get('/quickbooks/callback', async (req, res) => {
     // Fetch company info from QuickBooks
     const companyName = await fetchCompanyName(tokens.access_token, realmId);
 
-    // Save to Supabase
-    const supabase = getAdminClient();
+    // Try to save to Supabase (non-blocking - don't fail the OAuth flow if DB is unavailable)
+    try {
+      const supabase = getAdminClient();
 
-    // Check if this realmId already exists
-    const { data: existing } = await supabase
-      .from('quickbooks_connections')
-      .select('id')
-      .eq('realm_id', realmId)
-      .maybeSingle();
-
-    if (existing) {
-      // Update existing connection
-      await supabase
+      // Check if this realmId already exists
+      const { data: existing } = await supabase
         .from('quickbooks_connections')
-        .update({
+        .select('id')
+        .eq('realm_id', realmId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('quickbooks_connections')
+          .update({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+            company_name: companyName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+        console.log('[Auth] Updated existing connection for realm:', realmId);
+      } else {
+        await supabase.from('quickbooks_connections').insert({
+          user_id: 'user-1',
+          company_id: realmId,
+          company_name: companyName,
+          realm_id: realmId,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          company_name: companyName,
+          is_active: true,
+          connected_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
+        });
+        console.log('[Auth] Created new connection for realm:', realmId);
+      }
 
-      console.log('[Auth] Updated existing connection for realm:', realmId);
-    } else {
-      // Create new connection
-      await supabase.from('quickbooks_connections').insert({
+      // Create audit log (best-effort)
+      await supabase.from('audit_logs').insert({
         user_id: 'user-1',
-        company_id: realmId,
-        company_name: companyName,
-        realm_id: realmId,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        is_active: true,
-        connected_at: new Date().toISOString(),
+        action: 'quickbooks_connected',
+        details: `Connected QuickBooks company: ${companyName} (${realmId})`,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-      console.log('[Auth] Created new connection for realm:', realmId);
+      }).catch(() => {});
+    } catch (dbError) {
+      console.warn('[Auth] Supabase save failed (non-fatal):', dbError.message);
     }
 
-    // Create audit log
-    await supabase.from('audit_logs').insert({
-      user_id: 'user-1',
-      action: 'quickbooks_connected',
-      details: `Connected QuickBooks company: ${companyName} (${realmId})`,
-      created_at: new Date().toISOString(),
-    }).catch(() => {}); // Don't fail if audit table doesn't exist
-
-    // Redirect to frontend with success
-    redirectToFrontend(res, state, 'success');
+    // Redirect to frontend with success (even if DB save failed - OAuth itself succeeded)
+    redirectToFrontend(res, frontendRedirect, 'success');
   } catch (error) {
     console.error('[Auth] Callback error:', error);
-    redirectToFrontend(res, req.query.state, 'error', 'Internal server error');
+    // Try to get frontend redirect from state, fallback to env or empty
+    let errorRedirect = '';
+    if (req.query.state) {
+      const sd = pendingStates.get(req.query.state);
+      if (sd?.frontendRedirect) errorRedirect = sd.frontendRedirect;
+      pendingStates.delete(req.query.state);
+    }
+    redirectToFrontend(res, errorRedirect, 'error', 'Internal server error');
   }
 });
 
@@ -285,27 +294,16 @@ async function fetchCompanyName(accessToken, realmId) {
   return `Company ${realmId}`;
 }
 
-function redirectToFrontend(res, state, status, errorMsg) {
-  // Determine frontend URL
-  let frontendUrl = process.env.FRONTEND_URL || '';
-
-  // Check if state has a stored frontend redirect
-  if (state) {
-    const stateData = pendingStates.get(state);
-    if (stateData?.frontendRedirect) {
-      frontendUrl = stateData.frontendRedirect;
-    }
-  }
-
-  // Fallback: redirect to same origin (works when frontend is served by same server)
-  if (!frontendUrl) {
-    frontendUrl = '';
-  }
+function redirectToFrontend(res, frontendUrl, status, errorMsg) {
+  // Use provided frontendUrl, fallback to env, fallback to same origin (relative redirect)
+  const url = frontendUrl || process.env.FRONTEND_URL || '';
 
   const params = new URLSearchParams({ status });
   if (errorMsg) params.set('error', errorMsg);
 
-  res.redirect(`${frontendUrl}/?${params.toString()}`);
+  const redirectTarget = `${url}/?${params.toString()}`;
+  console.log('[Auth] Redirecting to frontend:', redirectTarget);
+  res.redirect(redirectTarget);
 }
 
 module.exports = router;
