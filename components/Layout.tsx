@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X } from 'lucide-react';
+import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle } from 'lucide-react';
 import { UserProfile, UserRole, AppNotification } from '../types';
 import Logo from './Logo';
 
@@ -9,6 +9,7 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
   user: UserProfile;
   onLogout: () => void;
+  onShowHelp?: () => void;
 }
 
 const MOCK_NOTIFICATIONS: AppNotification[] = [
@@ -17,7 +18,7 @@ const MOCK_NOTIFICATIONS: AppNotification[] = [
   { id: '3', title: 'System Update', message: 'Dup-Detect has been updated to v2.1.', type: 'info', isRead: true, time: '1d ago' },
 ];
 
-const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user, onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user, onLogout, onShowHelp }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
@@ -45,6 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
       icon: ClipboardList,
       roles: [UserRole.ADMIN, UserRole.MANAGER] 
     },
+    { id: 'help', label: 'Help Center', icon: HelpCircle },
     { id: 'profile', label: 'My Profile', icon: Settings },
   ];
 
@@ -72,16 +74,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
               <li key={item.id}>
                 <button
                   onClick={() => {
-                    setActiveTab(item.id);
+                    if (item.id === 'help' && onShowHelp) {
+                        onShowHelp();
+                    } else {
+                        setActiveTab(item.id);
+                    }
                     setMobileMenuOpen(false);
                   }}
                   className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    activeTab === item.id
+                    activeTab === item.id && item.id !== 'help'
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                       : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }`}
                 >
-                  <item.icon size={20} className={activeTab === item.id ? 'text-white' : 'text-slate-400'} />
+                  <item.icon size={20} className={activeTab === item.id && item.id !== 'help' ? 'text-white' : 'text-slate-400'} />
                   <span className="font-medium">{item.label}</span>
                 </button>
               </li>

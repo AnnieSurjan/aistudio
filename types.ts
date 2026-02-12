@@ -62,3 +62,20 @@ export interface AppNotification {
   isRead: boolean;
   time: string;
 }
+
+export interface AuditLogEntry {
+  id: string;
+  time: string;
+  user: string;
+  action: string;
+  details: string;
+  type: 'info' | 'warning' | 'danger' | 'success';
+}
+
+export interface ExclusionRule {
+  id: string;
+  name: string;
+  type: 'amount_below' | 'vendor_contains' | 'description_contains';
+  value: string | number;
+  isActive: boolean;
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { UserProfile as IUserProfile } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw } from 'lucide-react';
+import { UserProfile as IUserProfile, UserRole } from '../types';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale } from 'lucide-react';
+import LegalModal from './LegalModal';
 
 interface UserProfileProps {
   user: IUserProfile;
@@ -8,9 +9,46 @@ interface UserProfileProps {
   isConnectingQB?: boolean;
 }
 
+// Mock data for existing team members
+const MOCK_TEAM = [
+  { id: 1, name: 'Sarah Finance', email: 'sarah@finance-pro.com', role: 'VIEWER', status: 'Active' },
+  { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
+];
+
 const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, isConnectingQB }) => {
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
+  const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
+  
+  // Legal Modal State
+  const [showLegal, setShowLegal] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
+
+  // Check if user has permission to invite (Admin or Manager)
+  const canInvite = user.role === UserRole.ADMIN || user.role === UserRole.MANAGER;
+
+  const handleSendInvite = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) return;
+
+    setInviteStatus('sending');
+    
+    // Simulate API call
+    setTimeout(() => {
+        setInviteStatus('success');
+        setInviteEmail('');
+        // Reset status after 3 seconds
+        setTimeout(() => setInviteStatus('idle'), 3000);
+    }, 1500);
+  };
+  
+  const openLegal = (tab: 'terms' | 'privacy') => {
+      setLegalTab(tab);
+      setShowLegal(true);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-12">
       <h2 className="text-2xl font-bold text-slate-800">Account Settings</h2>
 
       {/* Integration Card */}
@@ -101,25 +139,180 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
         </div>
       </div>
       
+      {/* Team Invitation Section (Restricted to Admin/Manager) */}
+      {canInvite && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                    <Users className="mr-2 text-indigo-600" size={20}/>
+                    Team Management
+                </h3>
+                <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded">
+                    {user.role} Access
+                </span>
+            </div>
+            
+            <div className="p-8">
+                {/* Invite Form */}
+                <div className="mb-8">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
+                        <UserPlus size={16} className="mr-2"/> 
+                        Invite New User
+                    </h4>
+                    <form onSubmit={handleSendInvite} className="flex flex-col md:flex-row gap-4 items-start md:items-center bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                        <div className="flex-1 w-full">
+                            <input 
+                                type="email" 
+                                required
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                placeholder="colleague@company.com" 
+                                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                        <div className="w-full md:w-48">
+                            <select 
+                                value={inviteRole}
+                                onChange={(e) => setInviteRole(e.target.value as UserRole)}
+                                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                            >
+                                <option value={UserRole.VIEWER}>Viewer</option>
+                                <option value={UserRole.MANAGER}>Manager</option>
+                                {user.role === UserRole.ADMIN && <option value={UserRole.ADMIN}>Admin</option>}
+                            </select>
+                        </div>
+                        <button 
+                            type="submit"
+                            disabled={inviteStatus === 'sending' || inviteStatus === 'success'}
+                            className={`px-6 py-2 rounded-lg font-medium text-white flex items-center justify-center transition-all min-w-[140px] ${
+                                inviteStatus === 'success' 
+                                ? 'bg-green-600' 
+                                : 'bg-slate-900 hover:bg-slate-800'
+                            }`}
+                        >
+                            {inviteStatus === 'sending' ? (
+                                <RotateCw className="animate-spin" size={18} />
+                            ) : inviteStatus === 'success' ? (
+                                <>
+                                    <CheckCircle size={18} className="mr-2"/> Sent!
+                                </>
+                            ) : (
+                                <>
+                                    <Send size={18} className="mr-2"/> Invite
+                                </>
+                            )}
+                        </button>
+                    </form>
+                </div>
+
+                {/* Team List */}
+                <div>
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">Active Members</h4>
+                    <div className="overflow-hidden border border-slate-200 rounded-lg">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                                <tr>
+                                    <th className="px-4 py-3">User</th>
+                                    <th className="px-4 py-3">Role</th>
+                                    <th className="px-4 py-3">Status</th>
+                                    <th className="px-4 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {/* Current User */}
+                                <tr className="bg-slate-50/50">
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-3">
+                                                {user.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-slate-900">{user.name} (You)</div>
+                                                <div className="text-xs text-slate-500">{user.email}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-600">{user.role}</td>
+                                    <td className="px-4 py-3"><span className="text-green-600 font-medium text-xs px-2 py-1 bg-green-50 rounded-full">Active</span></td>
+                                    <td className="px-4 py-3 text-right text-slate-400 disabled cursor-not-allowed"><MoreHorizontal size={16} className="ml-auto"/></td>
+                                </tr>
+                                
+                                {/* Mock Users */}
+                                {MOCK_TEAM.map(member => (
+                                    <tr key={member.id} className="hover:bg-slate-50">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center">
+                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs mr-3">
+                                                    {member.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <div className="font-medium text-slate-900">{member.name}</div>
+                                                    <div className="text-xs text-slate-500">{member.email}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-600">{member.role}</td>
+                                        <td className="px-4 py-3">
+                                            {member.status === 'Active' ? (
+                                                <span className="text-green-600 font-medium text-xs px-2 py-1 bg-green-50 rounded-full">Active</span>
+                                            ) : (
+                                                <span className="text-orange-600 font-medium text-xs px-2 py-1 bg-orange-50 rounded-full flex items-center w-fit">
+                                                    <Clock size={10} className="mr-1"/> Pending
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <button className="text-slate-400 hover:text-slate-600">
+                                                <MoreHorizontal size={16} className="ml-auto"/>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Security Card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
             <Shield className="mr-2 text-green-600" size={20}/>
-            Security & Backup
+            Security & Compliance
         </h3>
-        <p className="text-sm text-slate-500 mb-6">Dup-Detect performs daily secure backups of your transactions before any deletion occurs.</p>
+        <p className="text-sm text-slate-500 mb-6">Dup-Detect performs daily secure backups. Review our legal terms regarding data handling below.</p>
         
         <div className="space-y-4">
             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                 <span className="text-slate-700">Two-Factor Authentication</span>
                 <button className="bg-slate-200 text-slate-600 px-3 py-1 rounded text-sm hover:bg-slate-300">Enable</button>
             </div>
-            <div className="flex items-center justify-between py-3">
+            <div className="flex items-center justify-between py-3 border-b border-slate-100">
                 <span className="text-slate-700">Activity Logs</span>
                 <button className="text-blue-600 text-sm hover:underline">Download CSV</button>
             </div>
+             <div className="flex items-center justify-between py-3">
+                <span className="text-slate-700">Legal Documents</span>
+                <div className="space-x-4">
+                    <button onClick={() => openLegal('terms')} className="text-blue-600 text-sm hover:underline flex items-center inline-flex">
+                        <FileText size={14} className="mr-1"/> Terms
+                    </button>
+                     <button onClick={() => openLegal('privacy')} className="text-blue-600 text-sm hover:underline flex items-center inline-flex">
+                        <Scale size={14} className="mr-1"/> Privacy
+                    </button>
+                </div>
+            </div>
         </div>
       </div>
+      
+      {/* Legal Modal */}
+      <LegalModal 
+        isOpen={showLegal}
+        onClose={() => setShowLegal(false)}
+        initialTab={legalTab}
+      />
     </div>
   );
 };

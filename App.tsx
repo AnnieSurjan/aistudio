@@ -8,15 +8,20 @@ import ChatAssistant from './components/ChatAssistant';
 import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
-import { UserProfile as IUserProfile, UserRole, ScanResult } from './types';
+import HelpCenter from './components/HelpCenter';
+import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
-import { HelpCircle, Users, ShieldAlert, FileText } from 'lucide-react';
+import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
 type ViewState = 'landing' | 'auth' | 'app';
 
 // This is the target URL for your backend API.
-// Even if this doesn't exist yet, the app will now handle it gracefully.
 const PRODUCTION_BACKEND_URL = 'https://dupdetect-backend.onrender.com'; 
+
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
+    { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
+    { id: '2', time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed', type: 'info' },
+];
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
@@ -29,6 +34,9 @@ const App: React.FC = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
 
+  // Audit Log State
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
+
   const [user, setUser] = useState<IUserProfile>({
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
@@ -37,6 +45,18 @@ const App: React.FC = () => {
     companyName: 'Finance Pro LLC',
     isQuickBooksConnected: false
   });
+
+  const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
+      const newLog: AuditLogEntry = {
+          id: Date.now().toString(),
+          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          user: user.name,
+          action,
+          details,
+          type
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -52,6 +72,16 @@ const App: React.FC = () => {
   const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('app');
+    // Add login log
+    const log: AuditLogEntry = {
+          id: Date.now().toString(),
+          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          user: 'Alex Accountant', // Mock
+          action: 'Login',
+          details: 'User logged in successfully',
+          type: 'info'
+    };
+    setAuditLogs(prev => [log, ...prev]);
   };
 
   const handleLogout = () => {
@@ -66,6 +96,7 @@ const App: React.FC = () => {
       setTimeout(() => {
           setIsConnectingQB(false);
           setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
+          handleAddAuditLog('Connection', 'QuickBooks Online connected (Simulation)', 'success');
           alert(
               `DEMO MODE ACTIVE\n\n` +
               `QuickBooks connection simulated successfully.\n` +
@@ -115,7 +146,6 @@ const App: React.FC = () => {
 
       } catch (error) {
           // 3. Fallback to Simulation on Production Error
-          // This allows the site to work on Render even without a deployed backend
           console.warn("Backend unreachable, falling back to demo:", error);
           runSimulation("Backend Not Connected (Live Demo Mode)");
       }
@@ -130,6 +160,8 @@ const App: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      handleAddAuditLog('Export', 'Duplicate transactions exported to CSV', 'info');
   };
 
   // Payment Handlers
@@ -145,6 +177,7 @@ const App: React.FC = () => {
               ...prev, 
               plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' 
           }));
+          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
           setShowPaymentModal(false);
           // If we were on landing page, move to app or show success
           if (currentView === 'landing') {
@@ -189,6 +222,7 @@ const App: React.FC = () => {
         setActiveTab={setActiveTab} 
         user={user}
         onLogout={handleLogout}
+        onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
             <Dashboard 
@@ -199,7 +233,13 @@ const App: React.FC = () => {
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
-        {activeTab === 'scan' && <ScanManager onExport={handleExport} />}
+        {activeTab === 'scan' && (
+            <ScanManager 
+                onExport={handleExport} 
+                user={user}
+                onAddAuditLog={handleAddAuditLog}
+            />
+        )}
         {activeTab === 'history' && <CalendarView history={MOCK_SCAN_HISTORY} />}
         
         {activeTab === 'users' && (
@@ -240,17 +280,17 @@ const App: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {[
-                                { time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1' },
-                                { time: '2023-11-10 14:35', user: 'Alex Accountant', action: 'Scan Run', details: 'Manual scan initiated' },
-                                { time: '2023-11-10 14:40', user: 'Alex Accountant', action: 'Delete Group', details: 'Resolved duplicate group GRP-102 (3 txns)' },
-                                { time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed' },
-                            ].map((log, i) => (
+                            {auditLogs.map((log, i) => (
                                 <tr key={i} className="hover:bg-slate-50">
                                     <td className="px-6 py-3 text-slate-600 text-sm font-mono">{log.time}</td>
                                     <td className="px-6 py-3 text-slate-800 text-sm font-medium">{log.user}</td>
                                     <td className="px-6 py-3 text-sm">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${log.action.includes('Delete') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            log.type === 'danger' ? 'bg-red-100 text-red-700' : 
+                                            log.type === 'warning' ? 'bg-orange-100 text-orange-700' :
+                                            log.type === 'success' ? 'bg-green-100 text-green-700' :
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
                                             {log.action}
                                         </span>
                                     </td>
@@ -259,6 +299,9 @@ const App: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
+                    {auditLogs.length === 0 && (
+                        <div className="p-8 text-center text-slate-500">No logs available.</div>
+                    )}
                 </div>
             </div>
         )}
@@ -271,32 +314,11 @@ const App: React.FC = () => {
             />
         )}
         
-        {showHelp && (
-            <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-                <div className="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                    <h3 className="text-xl font-bold mb-4 flex items-center">
-                        <HelpCircle className="mr-2 text-blue-600"/> Help & FAQ
-                    </h3>
-                    <div className="space-y-3">
-                        <details className="cursor-pointer group bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <summary className="font-medium text-slate-800 list-none flex justify-between items-center">
-                                How does detection work?
-                                <span className="group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <p className="text-sm text-slate-600 mt-2 leading-relaxed">We scan date, amount, vendor, and memo fields. We also look for close matches (fuzzy logic) within $1.00 difference to catch tax variances.</p>
-                        </details>
-                        <details className="cursor-pointer group bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <summary className="font-medium text-slate-800 list-none flex justify-between items-center">
-                                Is deletion permanent?
-                                <span className="group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <p className="text-sm text-slate-600 mt-2 leading-relaxed">No. We create a secure backup before resolving any group. You can Undo actions directly from the Scan page history.</p>
-                        </details>
-                    </div>
-                    <button onClick={() => setShowHelp(false)} className="mt-6 w-full py-2.5 bg-slate-800 hover:bg-slate-900 rounded-lg text-white font-medium transition-colors">Close</button>
-                </div>
-            </div>
-        )}
+        {/* Help Center Component */}
+        <HelpCenter 
+            isOpen={showHelp} 
+            onClose={() => setShowHelp(false)} 
+        />
 
       </Layout>
       
@@ -314,7 +336,7 @@ const App: React.FC = () => {
       <button 
         onClick={() => setShowHelp(true)}
         className="fixed bottom-24 right-6 w-10 h-10 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 z-40 transition-colors border border-slate-700"
-        title="Help & FAQ"
+        title="Help & Support"
       >
         <HelpCircle size={20} />
       </button>

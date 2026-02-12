@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -26,6 +26,13 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
     { name: 'Bills', value: 300 },
     { name: 'Payments', value: 300 },
     { name: 'Journals', value: 200 },
+  ];
+
+  // Mock Currency Data
+  const currencyData = [
+      { name: 'USD', value: 65, color: '#22c55e' },
+      { name: 'EUR', value: 25, color: '#3b82f6' },
+      { name: 'HUF', value: 10, color: '#f59e0b' },
   ];
 
   return (
@@ -101,19 +108,30 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           <p className="text-slate-400 text-sm mt-4">Last 30 days</p>
         </div>
 
+        {/* Currency Exposure Card - Relevant for Hungarian/Global users */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Pending Review</p>
-              <h3 className="text-3xl font-bold text-slate-800 mt-2">15</h3>
+            <div className="flex justify-between items-start mb-2">
+                <div>
+                    <p className="text-slate-500 text-sm font-medium">Active Currencies</p>
+                    <h3 className="text-3xl font-bold text-slate-800 mt-2">3</h3>
+                </div>
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                    <Globe size={20} />
+                </div>
             </div>
-            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-              <AlertTriangle size={20} />
+            <div className="flex h-3 w-full rounded-full overflow-hidden mb-2 bg-slate-100">
+                {currencyData.map((c, i) => (
+                    <div key={i} style={{ width: `${c.value}%`, backgroundColor: c.color }} title={c.name}></div>
+                ))}
             </div>
-          </div>
-          <p className="text-orange-600 text-sm mt-4 cursor-pointer hover:underline">
-            Action required
-          </p>
+            <div className="flex justify-between text-xs text-slate-500">
+                 {currencyData.map((c, i) => (
+                    <span key={i} className="flex items-center">
+                        <div className="w-2 h-2 rounded-full mr-1" style={{backgroundColor: c.color}}></div>
+                        {c.name} {c.value}%
+                    </span>
+                 ))}
+            </div>
         </div>
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 bg-gradient-to-br from-indigo-600 to-purple-700 text-white">
