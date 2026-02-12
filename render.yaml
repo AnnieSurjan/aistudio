@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: dup-detect-api
+    name: dupdetect-frontend
     runtime: node
     region: frankfurt
     rootDir: server
