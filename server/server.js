@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -81,7 +82,6 @@ app.use(express.static(distPath));
 
 // SPA catch-all: minden nem-API route-ra a frontend index.html-t kuldjuk
 // Ha nincs frontend build, az API info-t adjuk vissza
-const fs = require('fs');
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html');
   if (fs.existsSync(indexPath)) {
