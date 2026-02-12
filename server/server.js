@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -71,32 +72,34 @@ app.get('/health', (req, res) => {
   });
 });
 
-// --- Root endpoint ---
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Dup-Detect API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      companies: '/api/companies',
-      quickbooks: '/api/quickbooks/transactions',
-      notifications: '/api/notifications',
-      insights: '/api/insights',
-      schedule: '/api/schedule',
-      audit: '/api/audit/*',
-      undo: '/api/undo/*',
-      cron: '/api/cron/scheduled-scan',
-    },
-  });
-});
-
 // --- Frontend static files ---
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
 
 // SPA catch-all: minden nem-API route-ra a frontend index.html-t kuldjuk
+// Ha nincs frontend build, az API info-t adjuk vissza
 app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.json({
+      name: 'Dup-Detect API',
+      version: '1.0.0',
+      message: 'Frontend not built yet. Run npm run build first.',
+      endpoints: {
+        health: '/health',
+        companies: '/api/companies',
+        quickbooks: '/api/quickbooks/transactions',
+        notifications: '/api/notifications',
+        insights: '/api/insights',
+        schedule: '/api/schedule',
+        audit: '/api/audit/*',
+        undo: '/api/undo/*',
+        cron: '/api/cron/scheduled-scan',
+      },
+    });
+  }
 });
 
 // --- Error handler ---
