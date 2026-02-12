@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: dup-detect-api
+    runtime: node
+    region: frankfurt
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+    healthCheckPath: /health
