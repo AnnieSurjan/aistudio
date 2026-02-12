@@ -1,0 +1,53 @@
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  VIEWER = 'VIEWER',
+}
+
+export enum TransactionType {
+  INVOICE = 'Invoice',
+  BILL = 'Bill',
+  PAYMENT = 'Payment',
+  JOURNAL = 'JournalEntry',
+  PURCHASE = 'Purchase',
+}
+
+export interface Transaction {
+  id: string;
+  date: string; // ISO Date YYYY-MM-DD
+  amount: number;
+  currency: string;
+  type: TransactionType;
+  entityName: string; // Customer or Vendor
+  memo?: string;
+  status: 'pending' | 'reviewed' | 'deleted';
+}
+
+export interface DuplicateGroup {
+  id: string;
+  reason: string;
+  transactions: Transaction[];
+  confidenceScore: number;
+}
+
+export interface ScanResult {
+  id: string;
+  date: string;
+  duplicatesFound: number;
+  status: 'Completed' | 'Failed' | 'Running';
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: Date;
+}
+
+export interface UserProfile {
+  name: string;
+  email: string;
+  role: UserRole;
+  plan: 'Starter' | 'Professional' | 'Enterprise';
+  companyName: string;
+  isQuickBooksConnected?: boolean;
+}
