@@ -1,7 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!ai) {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API key is not configured");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+}
 
 const SYSTEM_INSTRUCTION = `
 You are Dup-Detect AI, a specialized assistant for a QuickBooks Online duplicate detection tool.
@@ -20,20 +31,15 @@ export const sendMessageToGemini = async (
   newMessage: string
 ): Promise<string> => {
   try {
-    const model = 'gemini-3-flash-preview'; 
-    
-    // Construct chat history for the model
-    // Note: In a real app, we would persist the chat object. 
-    // Here we reconstruct context for a stateless-like call or use the Chat API properly if persistent.
-    // For simplicity in this demo, we use generateContent with system instruction.
-    
+    const model = 'gemini-3-flash-preview';
+
     const prompt = `
     Context: The user is asking: "${newMessage}"
     Previous conversation:
     ${history.map(h => `${h.role}: ${h.text}`).join('\n')}
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model,
       contents: prompt,
       config: {
