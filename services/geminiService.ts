@@ -1,7 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!ai) {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API key is not configured");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+}
 
 const SYSTEM_INSTRUCTION = `
 You are Dup-Detect AI, a specialized assistant for a QuickBooks Online duplicate detection tool.
@@ -33,7 +44,7 @@ export const sendMessageToGemini = async (
     ${history.map(h => `${h.role}: ${h.text}`).join('\n')}
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model,
       contents: prompt,
       config: {
