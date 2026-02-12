@@ -51,7 +51,9 @@ const scheduleRouter = require('./routes/schedule');
 const auditRouter = require('./routes/audit');
 const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
+const authRouter = require('./routes/auth');
 
+app.use('/auth', authRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/quickbooks', quickbooksRouter);
 app.use('/api/notifications', notificationsRouter);
@@ -77,6 +79,8 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      auth: '/auth/quickbooks',
+      authCallback: '/auth/quickbooks/callback',
       companies: '/api/companies',
       quickbooks: '/api/quickbooks/transactions',
       notifications: '/api/notifications',
