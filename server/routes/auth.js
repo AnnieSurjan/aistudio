@@ -175,12 +175,14 @@ router.get('/quickbooks/callback', async (req, res) => {
       }
 
       // Create audit log (best-effort)
-      await supabase.from('audit_logs').insert({
-        user_id: 'user-1',
-        action: 'quickbooks_connected',
-        details: `Connected QuickBooks company: ${companyName} (${realmId})`,
-        created_at: new Date().toISOString(),
-      }).catch(() => {});
+      try {
+        await supabase.from('audit_logs').insert({
+          user_id: 'user-1',
+          action: 'quickbooks_connected',
+          details: `Connected QuickBooks company: ${companyName} (${realmId})`,
+          created_at: new Date().toISOString(),
+        });
+      } catch (_) { /* ignore if audit table doesn't exist */ }
     } catch (dbError) {
       console.warn('[Auth] Supabase save failed (non-fatal):', dbError.message);
     }
