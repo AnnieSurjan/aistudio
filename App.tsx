@@ -13,8 +13,8 @@ import { HelpCircle, Users } from 'lucide-react';
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Updated to the provided Render URL
-const BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
+// Backend API URL (Render service: dupdetect_frontend)
+const BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
