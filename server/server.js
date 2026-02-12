@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3001;
 // A Google AI Studio frontend vagy barmilyen mas frontend URL-je
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  process.env.RENDER_EXTERNAL_URL,
   'http://localhost:3000',
   'http://localhost:5173',
 ].filter(Boolean);
@@ -18,7 +19,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Engedelyezzuk a request-eket origin nelkul (pl. mobil appok, Postman)
+      // Engedelyezzuk a request-eket origin nelkul (pl. mobil appok, Postman, same-origin)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -27,7 +28,12 @@ app.use(
       if (origin.includes('google') || origin.includes('googleapis')) {
         return callback(null, true);
       }
-      return callback(new Error('Not allowed by CORS'));
+      // Engedelyezzuk a Render.com domain-eket (same-origin frontend)
+      if (origin.includes('onrender.com')) {
+        return callback(null, true);
+      }
+      // Ismeretlen origin: ne dobjunk hibat, csak ne adjunk CORS header-eket
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
