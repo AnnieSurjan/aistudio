@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -8,9 +8,10 @@ interface DashboardProps {
   user: UserProfile;
   onConnectQuickBooks: () => void;
   isConnectingQB: boolean;
+  onUpgrade?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB, onUpgrade }) => {
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
     duplicates: s.duplicatesFound
@@ -27,11 +28,18 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
     { name: 'Journals', value: 200 },
   ];
 
+  // Mock Currency Data
+  const currencyData = [
+      { name: 'USD', value: 65, color: '#22c55e' },
+      { name: 'EUR', value: 25, color: '#3b82f6' },
+      { name: 'HUF', value: 10, color: '#f59e0b' },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
-        <p className="text-slate-500">Welcome back! Here is your duplicate detection summary.</p>
+        <p className="text-slate-500">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
 
       {/* Connect QuickBooks Banner - Show only if not connected */}
@@ -100,30 +108,46 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           <p className="text-slate-400 text-sm mt-4">Last 30 days</p>
         </div>
 
+        {/* Currency Exposure Card - Relevant for Hungarian/Global users */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Pending Review</p>
-              <h3 className="text-3xl font-bold text-slate-800 mt-2">15</h3>
+            <div className="flex justify-between items-start mb-2">
+                <div>
+                    <p className="text-slate-500 text-sm font-medium">Active Currencies</p>
+                    <h3 className="text-3xl font-bold text-slate-800 mt-2">3</h3>
+                </div>
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                    <Globe size={20} />
+                </div>
             </div>
-            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-              <AlertTriangle size={20} />
+            <div className="flex h-3 w-full rounded-full overflow-hidden mb-2 bg-slate-100">
+                {currencyData.map((c, i) => (
+                    <div key={i} style={{ width: `${c.value}%`, backgroundColor: c.color }} title={c.name}></div>
+                ))}
             </div>
-          </div>
-          <p className="text-orange-600 text-sm mt-4 cursor-pointer hover:underline">
-            Action required
-          </p>
+            <div className="flex justify-between text-xs text-slate-500">
+                 {currencyData.map((c, i) => (
+                    <span key={i} className="flex items-center">
+                        <div className="w-2 h-2 rounded-full mr-1" style={{backgroundColor: c.color}}></div>
+                        {c.name} {c.value}%
+                    </span>
+                 ))}
+            </div>
         </div>
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 bg-gradient-to-br from-indigo-600 to-purple-700 text-white">
           <div>
             <p className="text-indigo-100 text-sm font-medium">Current Plan</p>
-            <h3 className="text-2xl font-bold mt-2">Professional</h3>
+            <h3 className="text-2xl font-bold mt-2">{user.plan}</h3>
             <p className="text-xs text-indigo-200 mt-1">Next billing: Nov 01</p>
           </div>
-          <button className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white text-sm py-2 rounded-lg transition-colors">
-            Upgrade Plan
-          </button>
+          {user.plan !== 'Enterprise' && (
+              <button 
+                onClick={onUpgrade}
+                className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white text-sm py-2 rounded-lg transition-colors"
+              >
+                Upgrade Plan
+              </button>
+          )}
         </div>
       </div>
 

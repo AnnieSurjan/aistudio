@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: dupdetect-frontend
+    name: dup-detect-api
     runtime: node
     region: frankfurt
     buildCommand: npm install && npm run build && cd server && npm install
@@ -18,11 +18,5 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: CRON_SECRET
-        sync: false
-      - key: QUICKBOOKS_CLIENT_ID
-        sync: false
-      - key: QUICKBOOKS_CLIENT_SECRET
-        sync: false
-      - key: QUICKBOOKS_REDIRECT_URI
         sync: false
     healthCheckPath: /health

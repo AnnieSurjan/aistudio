@@ -1,13 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, CheckCircle, TrendingUp, Shield, Clock, Database } from 'lucide-react';
 import Logo from './Logo';
+import LegalModal from './LegalModal';
+import HelpCenter from './HelpCenter';
 
 interface LandingPageProps {
   onGetStarted: () => void;
   onLogin: () => void;
+  onUpgrade: (plan: string, price: string) => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade }) => {
+  const [showLegal, setShowLegal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
+
+  const openLegal = (tab: 'terms' | 'privacy') => {
+      setLegalTab(tab);
+      setShowLegal(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
       {/* Navigation */}
@@ -36,10 +48,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin }) => {
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-white pb-16 pt-20 lg:pb-24 lg:pt-32">
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-50 text-blue-700 font-medium text-sm mb-8 border border-blue-100">
-            <span className="flex h-2 w-2 rounded-full bg-blue-600 mr-2"></span>
-            Now compatible with QuickBooks Online Advanced
-          </div>
           <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
             Stop Paying Twice. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -137,7 +145,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin }) => {
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Manual Scans</li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Email Support</li>
                     </ul>
-                    <button onClick={onGetStarted} className="mt-8 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors">Choose Starter</button>
+                    <button 
+                        onClick={() => onUpgrade('Starter', '19')} 
+                        className="mt-8 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors"
+                    >
+                        Choose Starter
+                    </button>
                 </div>
 
                 {/* Professional */}
@@ -152,46 +165,70 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin }) => {
                     <ul className="mt-6 space-y-4">
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2"/> Up to 5 Files</li>
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2"/> AI Detection Engine</li>
+                        <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2"/> Priority Support</li>
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2"/> Automated Daily Scans</li>
-                        <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2"/> CSV Export</li>
                     </ul>
-                    <button onClick={onGetStarted} className="mt-8 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg">Choose Pro</button>
+                    <button 
+                        onClick={() => onUpgrade('Professional', '49')}
+                        className="mt-8 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-500/20"
+                    >
+                        Choose Professional
+                    </button>
                 </div>
 
                 {/* Enterprise */}
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm relative">
                     <h3 className="text-lg font-semibold text-slate-900">Enterprise</h3>
                     <div className="mt-4 flex items-baseline">
                         <span className="text-4xl font-bold text-slate-900">$149</span>
                         <span className="text-slate-500 ml-1">/mo</span>
                     </div>
-                    <p className="text-slate-500 text-sm mt-2">For large firms & audit partners.</p>
+                    <p className="text-slate-500 text-sm mt-2">For large firms & auditors.</p>
                     <ul className="mt-6 space-y-4">
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Unlimited Files</li>
-                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> API Access</li>
-                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Custom Integrations</li>
-                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Priority Phone Support</li>
+                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Advanced User Roles</li>
+                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Audit Logs & Compliance</li>
+                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2"/> Dedicated Account Manager</li>
                     </ul>
-                    <button onClick={onGetStarted} className="mt-8 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors">Contact Sales</button>
+                    <button 
+                        onClick={() => onUpgrade('Enterprise', '149')}
+                        className="mt-8 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors"
+                    >
+                        Choose Enterprise
+                    </button>
                 </div>
             </div>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="bg-slate-50 py-12 border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
-            <Logo variant="dark" className="mb-4 md:mb-0" />
-            <div className="text-slate-500 text-sm">
-                &copy; 2024 DupDetect Inc. All rights reserved.
-            </div>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-                <a href="#" className="text-slate-400 hover:text-slate-600 text-sm">Privacy Policy</a>
-                <a href="#" className="text-slate-400 hover:text-slate-600 text-sm">Terms of Service</a>
-                <a href="#" className="text-slate-400 hover:text-slate-600 text-sm">Support</a>
-            </div>
-        </div>
+      <footer className="bg-slate-50 border-t border-slate-200 py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                  <div className="mb-4 md:mb-0">
+                      <Logo variant="dark" className="scale-75 origin-left" />
+                      <p className="text-xs text-slate-500 mt-2">
+                          &copy; 2023 Dat-assist Kft. All rights reserved.
+                      </p>
+                  </div>
+                  <div className="flex space-x-6 text-sm text-slate-500">
+                      <button onClick={() => openLegal('terms')} className="hover:text-blue-600 transition-colors">Terms of Service</button>
+                      <button onClick={() => openLegal('privacy')} className="hover:text-blue-600 transition-colors">Privacy Policy</button>
+                      <button onClick={() => setShowHelp(true)} className="hover:text-blue-600 transition-colors">Contact Support</button>
+                  </div>
+              </div>
+          </div>
       </footer>
+
+      <LegalModal 
+        isOpen={showLegal} 
+        onClose={() => setShowLegal(false)} 
+        initialTab={legalTab} 
+      />
+      <HelpCenter 
+        isOpen={showHelp} 
+        onClose={() => setShowHelp(false)} 
+      />
     </div>
   );
 };
