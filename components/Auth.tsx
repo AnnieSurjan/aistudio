@@ -132,7 +132,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
     setIsLoading(false);
 
     if (ok) {
-      setErrorMsg(''); // Clear any previous errors
+      setErrorMsg('');
       alert('New verification code sent!');
     } else {
       setErrorMsg(data.error || 'Failed to resend code');
@@ -188,6 +188,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             maxLength={6}
                             required
                             autoFocus
+                            autoComplete="one-time-code"
                         />
                     </div>
 
@@ -229,22 +230,25 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             <div className="relative">
                                 <User className="absolute top-3 left-3 text-slate-400" size={18}/>
                                 <input
-                                  type="text"
-                                  placeholder="Full Name"
-                                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                  required
-                                  value={name}
-                                  onChange={(e) => setName(e.target.value)}
+                                    type="text"
+                                    placeholder="Full Name"
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                    required
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    autoComplete="name"
                                 />
                             </div>
                             <div className="relative">
                                 <Building className="absolute top-3 left-3 text-slate-400" size={18}/>
                                 <input
-                                  type="text"
-                                  placeholder="Company Name"
-                                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                  value={companyName}
-                                  onChange={(e) => setCompanyName(e.target.value)}
+                                    type="text"
+                                    placeholder="Company Name"
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                    required
+                                    value={companyName}
+                                    onChange={(e) => setCompanyName(e.target.value)}
+                                    autoComplete="organization"
                                 />
                             </div>
                         </>
@@ -258,17 +262,21 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="username"
+                            name="email"
                         />
                     </div>
                     <div className="relative">
                         <Lock className="absolute top-3 left-3 text-slate-400" size={18}/>
                         <input
-                          type="password"
-                          placeholder="Password"
-                          className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          required
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
+                            type="password"
+                            placeholder="Password"
+                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete={isLogin ? "current-password" : "new-password"}
+                            name="password"
                         />
                     </div>
 
@@ -284,12 +292,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                         <div className="relative">
                             <Lock className="absolute top-3 left-3 text-slate-400" size={18}/>
                             <input
-                              type="password"
-                              placeholder="Confirm Password"
-                              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                              required
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
+                                type="password"
+                                placeholder="Confirm Password"
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                required
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                autoComplete="new-password"
                             />
                         </div>
                     )}

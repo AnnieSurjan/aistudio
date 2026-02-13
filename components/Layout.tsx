@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UserProfile, UserRole, AppNotification } from '../types';
 import Logo from './Logo';
 
@@ -22,11 +22,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
+  
+  // Sidebar collapsed state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  const handleNotificationClick = (id: string) => {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   // Menu items definition with role-based visibility
@@ -58,17 +65,29 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden">
       {/* Sidebar - Dark Mode */}
-      <aside className={`fixed md:relative z-40 w-64 h-full bg-slate-900 text-white flex flex-col transition-transform duration-300 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-xl`}>
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-          <Logo variant="light" />
-          {/* Notification Bell in Sidebar for Desktop */}
-          <div className="relative md:hidden"> 
-             {/* Only visible on mobile menu inside sidebar if needed, but usually header handles mobile */}
-          </div>
+      <aside 
+        className={`fixed md:relative z-40 h-full bg-slate-900 text-white flex flex-col transition-all duration-300 transform 
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-xl
+        ${isSidebarCollapsed ? 'w-20' : 'w-64'}
+        `}
+      >
+        <div className={`p-6 border-b border-slate-800 flex items-center h-20 ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+          {isSidebarCollapsed ? (
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl hover:opacity-90 transition-opacity"
+              >
+                  D
+              </button>
+          ) : (
+              <button onClick={() => setActiveTab('dashboard')} className="hover:opacity-90 transition-opacity text-left">
+                  <Logo variant="light" />
+              </button>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6">
-          <p className="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Main Menu</p>
+          {!isSidebarCollapsed && <p className="px-6 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 animate-in fade-in">Main Menu</p>}
           <ul className="space-y-1 px-3">
             {visibleMenuItems.map((item) => (
               <li key={item.id}>
@@ -81,44 +100,65 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
                     }
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    activeTab === item.id && item.id !== 'help'
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group relative
+                    ${activeTab === item.id && item.id !== 'help'
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`}
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
+                    ${isSidebarCollapsed ? 'justify-center' : ''}
+                  `}
+                  title={isSidebarCollapsed ? item.label : ''}
                 >
-                  <item.icon size={20} className={activeTab === item.id && item.id !== 'help' ? 'text-white' : 'text-slate-400'} />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon size={20} className={`shrink-0 ${activeTab === item.id && item.id !== 'help' ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                  {!isSidebarCollapsed && <span className="font-medium whitespace-nowrap">{item.label}</span>}
+                  
+                  {isSidebarCollapsed && (
+                      <div className="absolute left-full ml-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                          {item.label}
+                      </div>
+                  )}
                 </button>
               </li>
             ))}
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900">
+        <div className="p-4 border-t border-slate-800 bg-slate-900 flex flex-col gap-2">
+           {/* Unpin/Collapse Button - Above Profile */}
+           <button 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="flex items-center justify-center p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors mb-2"
+              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+           >
+                {isSidebarCollapsed ? <ChevronRight size={20} /> : <PanelLeftClose size={20} />}
+                {!isSidebarCollapsed && <span className="ml-2 text-sm">Collapse Menu</span>}
+           </button>
+
           <div 
             onClick={() => {
                 setActiveTab('profile');
                 setMobileMenuOpen(false);
             }}
-            className="flex items-center space-x-3 mb-4 px-2 py-2 -mx-2 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors group"
+            className={`flex items-center space-x-3 p-2 rounded-lg cursor-pointer hover:bg-slate-800 transition-colors group ${isSidebarCollapsed ? 'justify-center' : ''}`}
             title="Go to My Profile"
           >
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:ring-2 ring-blue-500 transition-all">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-md group-hover:ring-2 ring-blue-500 transition-all shrink-0">
               {user.name.charAt(0)}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate group-hover:text-blue-200 transition-colors">{user.name}</p>
-              <p className="text-xs text-slate-500 capitalize truncate">{user.role.toLowerCase()}</p>
-            </div>
+            {!isSidebarCollapsed && (
+                <div className="overflow-hidden">
+                <p className="text-sm font-semibold text-white truncate group-hover:text-blue-200 transition-colors">{user.name}</p>
+                <p className="text-xs text-slate-500 capitalize truncate">{user.role.toLowerCase()}</p>
+                </div>
+            )}
           </div>
           
           <button 
             onClick={onLogout}
-            className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 py-2.5 rounded-lg transition-all text-sm font-medium border border-slate-700 hover:border-red-900/50"
+            className={`w-full flex items-center space-x-2 bg-slate-800 hover:bg-red-900/30 hover:text-red-400 text-slate-300 py-2.5 rounded-lg transition-all text-sm font-medium border border-slate-700 hover:border-red-900/50 ${isSidebarCollapsed ? 'justify-center' : 'justify-center'}`}
+            title="Sign Out"
           >
             <LogOut size={16} />
-            <span>Sign Out</span>
+            {!isSidebarCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
@@ -132,14 +172,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative transition-all">
         {/* Header (Mobile & Desktop Utilities) */}
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-4 md:px-8 z-20 shrink-0 shadow-sm">
             <div className="flex items-center md:hidden">
                 <button onClick={() => setMobileMenuOpen(true)} className="text-slate-600 mr-3">
                     <Menu size={24} />
                 </button>
-                <Logo variant="dark" className="scale-75 origin-left" />
+                <button onClick={() => setActiveTab('dashboard')}>
+                    <Logo variant="dark" className="scale-75 origin-left" />
+                </button>
             </div>
 
             {/* Desktop Header Title (hidden on mobile to save space) */}
@@ -178,15 +220,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
                                         <div className="p-8 text-center text-slate-500 text-sm">No notifications</div>
                                     ) : (
                                         notifications.map(note => (
-                                            <div key={note.id} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!note.isRead ? 'bg-blue-50/50' : ''}`}>
+                                            <button 
+                                                key={note.id} 
+                                                onClick={() => handleNotificationClick(note.id)}
+                                                className={`w-full text-left p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!note.isRead ? 'bg-blue-50/50' : ''}`}
+                                            >
                                                 <div className="flex justify-between items-start mb-1">
                                                     <h4 className={`text-sm font-medium ${note.type === 'warning' ? 'text-orange-700' : note.type === 'success' ? 'text-green-700' : 'text-slate-800'}`}>
                                                         {note.title}
                                                     </h4>
-                                                    <span className="text-[10px] text-slate-400">{note.time}</span>
+                                                    <span className="text-[10px] text-slate-400 whitespace-nowrap ml-2">{note.time}</span>
                                                 </div>
                                                 <p className="text-xs text-slate-500 leading-relaxed">{note.message}</p>
-                                            </div>
+                                            </button>
                                         ))
                                     )}
                                 </div>

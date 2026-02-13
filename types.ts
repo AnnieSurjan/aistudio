@@ -20,6 +20,7 @@ export interface Transaction {
   currency: string;
   type: TransactionType;
   entityName: string; // Customer or Vendor
+  account: string; // New field for Account filtering
   memo?: string;
   status: 'pending' | 'reviewed' | 'deleted';
 }
