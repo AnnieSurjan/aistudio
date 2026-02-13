@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -38,8 +38,19 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
-        <p className="text-slate-500">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
+        <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
+            Dashboard
+            {user.isQuickBooksConnected && user.companyName && (
+                <>
+                    <span className="text-slate-300 font-light hidden sm:inline">/</span>
+                    <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
+                        <Building size={18} className="mr-2 opacity-75" />
+                        {user.companyName}
+                    </span>
+                </>
+            )}
+        </h2>
+        <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
 
       {/* Connect QuickBooks Banner - Show only if not connected */}

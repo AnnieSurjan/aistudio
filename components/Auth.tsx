@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Lock, Mail, User, ShieldCheck, Building, ArrowLeft, CheckCircle, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Lock, Mail, User, ShieldCheck, Building, ArrowLeft, CheckCircle, Send, Loader2, Square, CheckSquare } from 'lucide-react';
 import Logo from './Logo';
 
 interface AuthProps {
@@ -16,13 +16,35 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // Captcha State
+  const [isHuman, setIsHuman] = useState(false);
+  const [isCheckingHuman, setIsCheckingHuman] = useState(false);
+
+  // Reset captcha when switching modes
+  useEffect(() => {
+    setIsHuman(false);
+    setIsCheckingHuman(false);
+  }, [isLogin]);
+
   const handleForgotPassword = () => {
     alert("If this were a real app, we would send a password reset email to the address provided.");
+  };
+
+  const handleCaptchaClick = () => {
+      if (isHuman || isCheckingHuman) return;
+      setIsCheckingHuman(true);
+      // Simulate network verification
+      setTimeout(() => {
+          setIsCheckingHuman(false);
+          setIsHuman(true);
+      }, 1200);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!isHuman) return;
+
     if (isLogin) {
         // Login Flow
         onLogin();
@@ -164,8 +186,32 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             <input type="password" placeholder="Confirm Password" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" required />
                         </div>
                     )}
+
+                    {/* Robot Verification */}
+                    <div 
+                        onClick={handleCaptchaClick}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer select-none transition-all ${isHuman ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}
+                    >
+                        <div className="flex items-center space-x-3">
+                            <div className={`w-6 h-6 flex items-center justify-center rounded border ${isHuman ? 'bg-green-500 border-green-500' : 'bg-white border-slate-300'}`}>
+                                {isCheckingHuman ? (
+                                    <Loader2 size={16} className="animate-spin text-slate-500" />
+                                ) : isHuman ? (
+                                    <CheckSquare size={16} className="text-white" />
+                                ) : (
+                                    <div className="w-full h-full" />
+                                )}
+                            </div>
+                            <span className="text-sm font-medium text-slate-700">I am not a robot</span>
+                        </div>
+                        <ShieldCheck size={20} className={isHuman ? "text-green-500" : "text-slate-300"} />
+                    </div>
                     
-                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors flex justify-center items-center shadow-lg shadow-blue-500/30">
+                    <button 
+                        type="submit" 
+                        disabled={!isHuman}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors flex justify-center items-center shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    >
                         {isLogin ? 'Sign In' : 'Get Started'} 
                     </button>
                 </form>
