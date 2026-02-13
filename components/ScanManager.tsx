@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers } from 'lucide-react';
 
 interface ScanManagerProps {
   onExport: () => void; // Kept for interface compatibility but logic moved internal
@@ -30,6 +30,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [filterDateStart, setFilterDateStart] = useState('');
   const [filterDateEnd, setFilterDateEnd] = useState('');
   const [filterAccount, setFilterAccount] = useState('');
+  const [filterType, setFilterType] = useState('');
+  const [filterAccountType, setFilterAccountType] = useState('');
+
+  // Dropdown States
+  const [activeFilterDropdown, setActiveFilterDropdown] = useState<string | null>(null);
 
   // Export State
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -147,7 +152,6 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         alert("No duplicates to export.");
         return;
     }
-    // Simulate PDF generation by opening a print view
     const printWindow = window.open('', '_blank');
     if (printWindow) {
         const html = `
@@ -245,7 +249,6 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   // Email Reporting Handler
   const handleSaveEmailSettings = () => {
       setIsSavingEmail(true);
-      // Simulate API call
       setTimeout(() => {
           setIsSavingEmail(false);
           setShowEmailModal(false);
@@ -295,14 +298,13 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
   };
 
-  // Filter Logic (User Filters + Smart Rules)
+  // Filter Logic
   const filteredDuplicates = duplicates.filter(group => {
     const mainTxn = group.transactions[0];
     
     // 1. Check Smart Rules
     for (const rule of rules) {
         if (!rule.isActive) continue;
-        
         if (rule.type === 'amount_below' && typeof rule.value === 'number') {
             if (mainTxn.amount < rule.value) return false;
         }
@@ -326,12 +328,26 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     // Account Filter
     const matchesAccount = filterAccount === '' || (mainTxn.account && mainTxn.account.toLowerCase().includes(filterAccount.toLowerCase()));
 
+    // Transaction Type Filter
+    const matchesType = filterType === '' || mainTxn.type === filterType;
+
+    // Account Type Filter (Mocked based on simple string matching for demo)
+    // In real app, Transaction would have accountType field.
+    // For now we check if account name contains 'Receivable', 'Payable', etc.
+    let matchesAccountType = true;
+    if (filterAccountType) {
+        if (filterAccountType === 'Asset' && !mainTxn.account.includes('Receivable') && !mainTxn.account.includes('Funds')) matchesAccountType = false;
+        if (filterAccountType === 'Liability' && !mainTxn.account.includes('Payable')) matchesAccountType = false;
+        if (filterAccountType === 'Expense' && !mainTxn.account.includes('Supplies') && !mainTxn.account.includes('Cost')) matchesAccountType = false;
+        if (filterAccountType === 'Income' && !mainTxn.account.includes('Sales')) matchesAccountType = false;
+    }
+
     const amount = mainTxn.amount;
     const min = filterMinAmount ? parseFloat(filterMinAmount) : 0;
     const max = filterMaxAmount ? parseFloat(filterMaxAmount) : Infinity;
     const matchesAmount = amount >= min && amount <= max;
 
-    return matchesEntity && matchesAmount && matchesDate && matchesAccount;
+    return matchesEntity && matchesAmount && matchesDate && matchesAccount && matchesType && matchesAccountType;
   });
 
   const clearFilters = () => {
@@ -341,9 +357,150 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       setFilterDateStart('');
       setFilterDateEnd('');
       setFilterAccount('');
+      setFilterType('');
+      setFilterAccountType('');
+      setActiveFilterDropdown(null);
   };
 
   const activeRulesCount = rules.filter(r => r.isActive).length;
+  const isFiltering = filterEntity || filterMinAmount || filterMaxAmount || filterDateStart || filterDateEnd || filterAccount || filterType || filterAccountType;
+
+  // Render a specific dropdown
+  const renderDropdown = (type: string) => {
+      if (activeFilterDropdown !== type) return null;
+
+      // Click outside listener could be added here for robustness, 
+      // but simplistic toggle works for now.
+      return (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setActiveFilterDropdown(null)}></div>
+            <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-200 z-20 w-72 p-4 animate-in fade-in zoom-in-95">
+                {type === 'date' && (
+                    <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-slate-800">Date Range (USA Format)</h4>
+                        <div className="space-y-2">
+                             <div>
+                                <label className="text-xs text-slate-500">From (MM/DD/YYYY)</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                    value={filterDateStart}
+                                    onChange={e => setFilterDateStart(e.target.value)}
+                                />
+                             </div>
+                             <div>
+                                <label className="text-xs text-slate-500">To (MM/DD/YYYY)</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                                    value={filterDateEnd}
+                                    onChange={e => setFilterDateEnd(e.target.value)}
+                                />
+                             </div>
+                        </div>
+                    </div>
+                )}
+                {type === 'type' && (
+                    <div className="space-y-3">
+                         <h4 className="font-semibold text-sm text-slate-800">Transaction Type</h4>
+                         <select 
+                            value={filterType}
+                            onChange={(e) => setFilterType(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                         >
+                             <option value="">All Types</option>
+                             {Object.values(TransactionType).map(t => (
+                                 <option key={t} value={t}>{t}</option>
+                             ))}
+                         </select>
+                    </div>
+                )}
+                {type === 'accountType' && (
+                     <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-slate-800">Account Type</h4>
+                         <select 
+                            value={filterAccountType}
+                            onChange={(e) => setFilterAccountType(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                         >
+                             <option value="">All Account Types</option>
+                             <option value="Asset">Asset</option>
+                             <option value="Liability">Liability</option>
+                             <option value="Equity">Equity</option>
+                             <option value="Income">Income</option>
+                             <option value="Expense">Expense</option>
+                         </select>
+                     </div>
+                )}
+                {type === 'contact' && (
+                    <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-slate-800">Contact / Entity</h4>
+                        <input 
+                            type="text" 
+                            placeholder="Vendor, Customer, Employee"
+                            value={filterEntity}
+                            onChange={(e) => setFilterEntity(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            autoFocus
+                        />
+                    </div>
+                )}
+                {type === 'amount' && (
+                    <div className="space-y-3">
+                         <h4 className="font-semibold text-sm text-slate-800">Amount Range</h4>
+                         <div className="flex space-x-2">
+                             <input 
+                                type="number" 
+                                placeholder="Min"
+                                value={filterMinAmount}
+                                onChange={(e) => setFilterMinAmount(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                             />
+                             <input 
+                                type="number" 
+                                placeholder="Max"
+                                value={filterMaxAmount}
+                                onChange={(e) => setFilterMaxAmount(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                             />
+                         </div>
+                    </div>
+                )}
+                {type === 'accounts' && (
+                     <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-slate-800">Specific Account</h4>
+                        <input 
+                            type="text" 
+                            placeholder="e.g. Office Supplies"
+                            value={filterAccount}
+                            onChange={(e) => setFilterAccount(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                            autoFocus
+                        />
+                    </div>
+                )}
+            </div>
+          </>
+      );
+  };
+
+  const FilterPill = ({ id, label, icon: Icon, active, displayValue }: { id: string, label: string, icon: any, active: boolean, displayValue?: string }) => (
+      <div className="relative inline-block mr-2 mb-2">
+          <button 
+            onClick={() => setActiveFilterDropdown(activeFilterDropdown === id ? null : id)}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border text-sm font-medium transition-all
+                ${active 
+                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}
+            `}
+          >
+              <Icon size={14} className={active ? 'text-blue-500' : 'text-slate-400'} />
+              <span>{displayValue || label}</span>
+              <ChevronDown size={12} className={`ml-1 transition-transform ${activeFilterDropdown === id ? 'rotate-180' : ''}`} />
+          </button>
+          {renderDropdown(id)}
+      </div>
+  );
 
   return (
     <div className="space-y-6 relative">
@@ -357,7 +514,6 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             <button 
                 onClick={() => setShowEmailModal(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-                title="Configure Automated Client Reports"
             >
                 <Mail size={18} />
                 <span className="hidden sm:inline">Client Reporting</span>
@@ -444,7 +600,6 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                         <span className="ml-2 text-sm text-slate-500">({duplicates.length - filteredDuplicates.length} hidden by filters/rules)</span>
                     )}
                 </div>
-                {/* Fallback Undo Button in Header */}
                 {history.length > 0 && (
                     <button onClick={handleUndo} className="flex items-center text-sm text-blue-600 hover:underline">
                         <Undo size={14} className="mr-1"/> Undo last action
@@ -452,75 +607,61 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                 )}
             </div>
 
-            {/* Advanced Filters */}
+            {/* NEW FILTER BAR */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4">
                 <div className="flex items-center mb-3 text-slate-700 text-sm font-semibold">
                     <Filter size={16} className="mr-2"/>
                     Filter Results
+                    {isFiltering && (
+                        <button onClick={clearFilters} className="ml-3 text-xs text-red-500 hover:text-red-700 font-normal flex items-center">
+                            <X size={12} className="mr-1"/> Clear All
+                        </button>
+                    )}
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* Entity Search */}
-                    <div className="relative col-span-1 md:col-span-1">
-                        <Search className="absolute top-2.5 left-3 text-slate-400" size={16}/>
-                        <input 
-                            type="text" 
-                            placeholder="Vendor/Customer" 
-                            value={filterEntity}
-                            onChange={(e) => setFilterEntity(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-                    
-                     {/* Account Filter */}
-                    <div className="relative col-span-1 md:col-span-1">
-                        <input 
-                            type="text" 
-                            placeholder="Account (e.g. Sales)" 
-                            value={filterAccount}
-                            onChange={(e) => setFilterAccount(e.target.value)}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-
-                    {/* Date Range */}
-                    <div className="flex gap-2 col-span-1 md:col-span-1">
-                        <input 
-                            type="date"
-                            value={filterDateStart}
-                            onChange={(e) => setFilterDateStart(e.target.value)}
-                            className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input 
-                            type="date"
-                            value={filterDateEnd}
-                            onChange={(e) => setFilterDateEnd(e.target.value)}
-                            className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-
-                    {/* Amount & Clear */}
-                    <div className="flex gap-2 col-span-1 md:col-span-1">
-                         <input 
-                            type="number" 
-                            placeholder="Min $" 
-                            value={filterMinAmount}
-                            onChange={(e) => setFilterMinAmount(e.target.value)}
-                            className="w-20 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                         <input 
-                            type="number" 
-                            placeholder="Max $" 
-                            value={filterMaxAmount}
-                            onChange={(e) => setFilterMaxAmount(e.target.value)}
-                            className="w-20 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        {(filterEntity || filterMinAmount || filterMaxAmount || filterDateStart || filterDateEnd || filterAccount) && (
-                            <button onClick={clearFilters} className="text-slate-400 hover:text-red-500 transition-colors ml-auto">
-                                <XCircle size={20} />
-                            </button>
-                        )}
-                    </div>
+                <div className="flex flex-wrap items-center">
+                    <FilterPill 
+                        id="date" 
+                        label="Date Range" 
+                        icon={Calendar} 
+                        active={!!filterDateStart || !!filterDateEnd}
+                        displayValue={filterDateStart ? `${filterDateStart} - ${filterDateEnd || '...'}` : undefined}
+                    />
+                    <FilterPill 
+                        id="type" 
+                        label="Transaction Type" 
+                        icon={Tag} 
+                        active={!!filterType}
+                        displayValue={filterType}
+                    />
+                    <FilterPill 
+                        id="accountType" 
+                        label="Account Type" 
+                        icon={Layers} 
+                        active={!!filterAccountType}
+                        displayValue={filterAccountType}
+                    />
+                     <FilterPill 
+                        id="contact" 
+                        label="Contact" 
+                        icon={User} 
+                        active={!!filterEntity}
+                        displayValue={filterEntity}
+                    />
+                    <FilterPill 
+                        id="amount" 
+                        label="Amount" 
+                        icon={DollarSign} 
+                        active={!!filterMinAmount || !!filterMaxAmount}
+                        displayValue={filterMinAmount ? `$${filterMinAmount} - $${filterMaxAmount || '...'}` : undefined}
+                    />
+                     <FilterPill 
+                        id="accounts" 
+                        label="Accounts" 
+                        icon={Briefcase} 
+                        active={!!filterAccount}
+                        displayValue={filterAccount}
+                    />
                 </div>
             </div>
 
@@ -566,7 +707,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                         <table className="w-full text-left text-sm">
                             <thead>
                             <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/50">
-                                <th className="px-6 py-3 font-medium">Date</th>
+                                <th className="px-6 py-3 font-medium">Date (USA)</th>
                                 <th className="px-6 py-3 font-medium">Entity</th>
                                 <th className="px-6 py-3 font-medium">Account</th>
                                 <th className="px-6 py-3 font-medium">Memo</th>
@@ -576,7 +717,10 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                             <tbody>
                             {group.transactions.map((txn) => (
                                 <tr key={txn.id} className="hover:bg-slate-50 group transition-colors">
-                                <td className="px-6 py-3 text-slate-700">{txn.date}</td>
+                                <td className="px-6 py-3 text-slate-700">
+                                    {/* Mock US Format conversion */}
+                                    {new Date(txn.date).toLocaleDateString('en-US')}
+                                </td>
                                 <td className="px-6 py-3 text-slate-700 font-medium">{txn.entityName}</td>
                                 <td className="px-6 py-3 text-slate-500 text-xs">{txn.account || '-'}</td>
                                 <td className="px-6 py-3 text-slate-500 italic truncate max-w-xs">{txn.memo || '-'}</td>

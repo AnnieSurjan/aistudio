@@ -13,6 +13,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
   
   // Form State
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -112,6 +113,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             maxLength={6}
                             required 
                             autoFocus
+                            autoComplete="one-time-code"
                         />
                     </div>
 
@@ -148,11 +150,23 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                         <>
                             <div className="relative">
                                 <User className="absolute top-3 left-3 text-slate-400" size={18}/>
-                                <input type="text" placeholder="Full Name" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" required />
+                                <input 
+                                    type="text" 
+                                    placeholder="Full Name" 
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                                    required 
+                                    autoComplete="name"
+                                />
                             </div>
                             <div className="relative">
                                 <Building className="absolute top-3 left-3 text-slate-400" size={18}/>
-                                <input type="text" placeholder="Company Name" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" required />
+                                <input 
+                                    type="text" 
+                                    placeholder="Company Name" 
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                                    required 
+                                    autoComplete="organization"
+                                />
                             </div>
                         </>
                     )}
@@ -165,11 +179,22 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                             required 
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="username"
+                            name="email"
                         />
                     </div>
                     <div className="relative">
                         <Lock className="absolute top-3 left-3 text-slate-400" size={18}/>
-                        <input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" required />
+                        <input 
+                            type="password" 
+                            placeholder="Password" 
+                            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                            required 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete={isLogin ? "current-password" : "new-password"}
+                            name="password"
+                        />
                     </div>
                     
                     {isLogin && (
@@ -183,7 +208,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
                     {!isLogin && (
                         <div className="relative">
                             <Lock className="absolute top-3 left-3 text-slate-400" size={18}/>
-                            <input type="password" placeholder="Confirm Password" className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" required />
+                            <input 
+                                type="password" 
+                                placeholder="Confirm Password" 
+                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                                required 
+                                autoComplete="new-password"
+                            />
                         </div>
                     )}
 
