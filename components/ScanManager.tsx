@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Wifi, WifiOff } from 'lucide-react';
+
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
 
 interface ScanManagerProps {
   onExport: () => void; // Kept for interface compatibility but logic moved internal
@@ -59,33 +61,93 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       };
   }, []);
 
-  const runScan = () => {
+  const [scanSource, setScanSource] = useState<'live' | 'mock' | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const runScan = async () => {
     setIsScanning(true);
     setProgress(0);
     setDuplicates([]);
-    setHistory([]); // Clear history on new scan
+    setHistory([]);
     setShowUndoToast(false);
-    onAddAuditLog('Scan Run', 'Manual duplicate scan initiated', 'info');
+    setScanError(null);
 
-    // Simulate process
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-          // Perform detection
-          const detected = detectDuplicates(MOCK_TRANSACTIONS);
-          setDuplicates(detected);
-          if (detected.length > 0) {
-             onAddAuditLog('Scan Completed', `Scan finished. Found ${detected.length} potential duplicate groups.`, 'warning');
-          } else {
-             onAddAuditLog('Scan Completed', 'Scan finished. No duplicates found.', 'info');
+    const isQBConnected = user.isQuickBooksConnected;
+
+    if (isQBConnected) {
+      // --- REAL QB API SCAN ---
+      onAddAuditLog('Scan Run', 'Live QuickBooks scan initiated', 'info');
+      setScanSource('live');
+      setProgress(10);
+
+      try {
+        setProgress(20);
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/quickbooks/scan?userId=user-1`);
+        setProgress(50);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+
+          if (errorData.code === 'NO_CONNECTION') {
+            throw new Error('No active QuickBooks connection. Please reconnect QuickBooks from your Profile page.');
           }
-          return 100;
+          if (errorData.code === 'TOKEN_EXPIRED') {
+            throw new Error('QuickBooks session expired. Please reconnect QuickBooks.');
+          }
+          throw new Error(errorData.error || `Server error: ${response.status}`);
         }
-        return prev + 10;
-      });
-    }, 200);
+
+        const data = await response.json();
+        setProgress(75);
+
+        if (!data.success || !data.transactions) {
+          throw new Error('Invalid response from server');
+        }
+
+        const transactions: Transaction[] = data.transactions;
+        console.log(`[Scan] Fetched ${transactions.length} transactions from ${data.meta?.companyName}`);
+
+        setProgress(90);
+        const detected = detectDuplicates(transactions);
+        setProgress(100);
+        setIsScanning(false);
+        setDuplicates(detected);
+
+        if (detected.length > 0) {
+          onAddAuditLog('Scan Completed', `Live scan of "${data.meta?.companyName}" finished. Found ${detected.length} duplicate groups from ${transactions.length} transactions.`, 'warning');
+        } else {
+          onAddAuditLog('Scan Completed', `Live scan of "${data.meta?.companyName}" finished. No duplicates found in ${transactions.length} transactions.`, 'success');
+        }
+      } catch (error) {
+        console.error('[Scan] QB API error:', error);
+        setIsScanning(false);
+        setProgress(0);
+        setScanError(error instanceof Error ? error.message : 'Failed to fetch QuickBooks data');
+        onAddAuditLog('Scan Failed', `Live scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'danger');
+      }
+    } else {
+      // --- MOCK DATA SCAN (fallback) ---
+      onAddAuditLog('Scan Run', 'Demo scan initiated (mock data - connect QuickBooks for live data)', 'info');
+      setScanSource('mock');
+
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setIsScanning(false);
+            const detected = detectDuplicates(MOCK_TRANSACTIONS);
+            setDuplicates(detected);
+            if (detected.length > 0) {
+              onAddAuditLog('Scan Completed', `Demo scan finished. Found ${detected.length} potential duplicate groups.`, 'warning');
+            } else {
+              onAddAuditLog('Scan Completed', 'Demo scan finished. No duplicates found.', 'info');
+            }
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 200);
+    }
   };
 
   // Comparison / Review Flow
@@ -570,15 +632,15 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
              )}
           </div>
 
-          <button 
+          <button
             onClick={runScan}
             disabled={isScanning}
             className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white font-medium transition-all ${
-              isScanning ? 'bg-blue-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
+              isScanning ? 'bg-blue-400 cursor-wait' : user.isQuickBooksConnected ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
             }`}
           >
             {isScanning ? <RotateCcw className="animate-spin" size={18} /> : <Play size={18} />}
-            <span>{isScanning ? 'Scanning...' : 'Run New Scan'}</span>
+            <span>{isScanning ? 'Scanning...' : user.isQuickBooksConnected ? 'Scan Live QB' : 'Run Demo Scan'}</span>
           </button>
         </div>
       </div>
@@ -586,7 +648,22 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       {isScanning && (
         <div className="w-full bg-slate-200 rounded-full h-2.5 mb-6">
           <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-          <p className="text-xs text-center mt-1 text-slate-500">Analyzing transactions...</p>
+          <p className="text-xs text-center mt-1 text-slate-500">
+            {scanSource === 'live' ? 'Fetching live data from QuickBooks...' : 'Analyzing transactions...'}
+          </p>
+        </div>
+      )}
+
+      {scanError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start">
+          <AlertCircle className="text-red-500 mr-3 mt-0.5 shrink-0" size={20} />
+          <div>
+            <p className="text-red-800 font-medium text-sm">Scan Failed</p>
+            <p className="text-red-600 text-sm mt-1">{scanError}</p>
+          </div>
+          <button onClick={() => setScanError(null)} className="ml-auto text-red-400 hover:text-red-600">
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -596,6 +673,16 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                 <div className="flex items-center text-yellow-800">
                     <AlertCircle className="mr-2" size={20}/>
                     <span>Found {duplicates.length} potential duplicate groups.</span>
+                    {scanSource === 'live' && (
+                        <span className="ml-2 inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                            <Wifi size={10} className="mr-1"/> Live QB Data
+                        </span>
+                    )}
+                    {scanSource === 'mock' && (
+                        <span className="ml-2 inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">
+                            <WifiOff size={10} className="mr-1"/> Demo Data
+                        </span>
+                    )}
                     {duplicates.length !== filteredDuplicates.length && (
                         <span className="ml-2 text-sm text-slate-500">({duplicates.length - filteredDuplicates.length} hidden by filters/rules)</span>
                     )}
@@ -743,7 +830,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
           <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">
             <Check className="mx-auto h-12 w-12 text-green-400 mb-4" />
             <h3 className="text-lg font-medium text-slate-900">All Clean!</h3>
-            <p className="text-slate-500">No duplicate transactions found in the mock data.</p>
+            <p className="text-slate-500">
+              {scanSource === 'live'
+                ? 'No duplicate transactions found in your QuickBooks data.'
+                : 'No duplicate transactions found. Connect QuickBooks for live data.'}
+            </p>
             <button onClick={runScan} className="mt-4 text-blue-600 hover:underline">Run check again</button>
             
              {history.length > 0 && (
