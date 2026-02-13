@@ -129,32 +129,19 @@ const App: React.FC = () => {
 
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
-      
-      const currentHostname = window.location.hostname;
-      const isPreviewEnvironment = 
-          currentHostname.includes('google') || 
-          currentHostname.includes('webcontainer') || 
-          currentHostname.includes('localhost');
 
-      // 1. Immediate Simulation for Dev Environments
-      if (isPreviewEnvironment) {
-          runSimulation("Development Environment Detected");
-          return;
-      }
+      const currentFrontendUrl = window.location.origin;
 
-      // 2. Production Connection Attempt with Fallback
-      const currentFrontendUrl = window.location.origin; 
-      
+      // Always try the real backend first, fall back to simulation only if unreachable
       try {
         console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
-        
-        // Short timeout - if backend is sleeping or doesn't exist, fail fast to demo mode
+
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(3000) 
+            signal: AbortSignal.timeout(5000)
         });
-        
+
         if (!response.ok) {
              throw new Error(`Backend Error ${response.status}`);
         }
@@ -167,7 +154,7 @@ const App: React.FC = () => {
         }
 
       } catch (error) {
-          // 3. Fallback to Simulation on Production Error
+          // Fallback to Simulation if backend is not running
           console.warn("Backend unreachable, falling back to demo:", error);
           runSimulation("Backend Not Connected (Live Demo Mode)");
       }
