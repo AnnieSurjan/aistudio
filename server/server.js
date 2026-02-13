@@ -52,6 +52,7 @@ app.use((req, res, next) => {
 
 // --- Routes ---
 const authRouter = require('./routes/auth');
+const registrationRouter = require('./routes/registration');
 const companiesRouter = require('./routes/companies');
 const quickbooksRouter = require('./routes/quickbooks');
 const notificationsRouter = require('./routes/notifications');
@@ -62,6 +63,7 @@ const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
 
 app.use('/auth', authRouter);
+app.use('/auth', registrationRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/quickbooks', quickbooksRouter);
 app.use('/api/notifications', notificationsRouter);
