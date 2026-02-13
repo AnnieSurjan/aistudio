@@ -24,8 +24,8 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      // Engedelyezzuk a Google AI Studio domain-eket
-      if (origin.includes('google') || origin.includes('googleapis')) {
+      // Engedelyezzuk a Google AI Studio domain-eket (idx.dev, firebase, google)
+      if (origin.includes('google') || origin.includes('googleapis') || origin.includes('idx.dev') || origin.includes('web.app') || origin.includes('firebaseapp.com') || origin.includes('cloudworkstations.dev')) {
         return callback(null, true);
       }
       // Engedelyezzuk a Render.com domain-eket (same-origin frontend)

@@ -121,7 +121,7 @@ const App: React.FC = () => {
           const response = await fetch(`${backendUrl}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
               method: 'GET',
               headers: { 'Content-Type': 'application/json' },
-              signal: AbortSignal.timeout(5000)
+              signal: AbortSignal.timeout(20000)
           });
 
           if (!response.ok) {
