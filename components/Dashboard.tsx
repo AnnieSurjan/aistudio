@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -12,6 +12,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB, onUpgrade }) => {
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
     duplicates: s.duplicatesFound
@@ -40,8 +42,17 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
       { month: 'Oct', saved: 5600, count: 28 },
   ];
 
+  const handleUpgradeClick = () => {
+    setShowUpgradeModal(true);
+  };
+
+  const confirmUpgrade = () => {
+    setShowUpgradeModal(false);
+    if (onUpgrade) onUpgrade();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
             Dashboard
@@ -146,10 +157,10 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           </div>
           {user.plan !== 'Enterprise' && (
               <button 
-                onClick={onUpgrade}
-                className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white text-sm py-2 rounded-lg transition-colors"
+                onClick={handleUpgradeClick}
+                className="mt-4 w-full bg-white/20 hover:bg-white/30 text-white text-sm py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
               >
-                Upgrade Plan
+                <Zap size={14} fill="currentColor" /> Upgrade Plan
               </button>
           )}
         </div>
@@ -262,6 +273,108 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           </div>
         </div>
       </div>
+
+      {/* Upgrade Details Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden relative flex flex-col md:flex-row">
+               {/* Close Button */}
+               <button 
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10 p-1 bg-white/50 rounded-full"
+               >
+                   <X size={24} />
+               </button>
+
+               {/* Left: Value Proposition */}
+               <div className="bg-slate-900 text-white p-8 md:w-2/5 flex flex-col justify-between relative overflow-hidden">
+                   <div className="absolute top-[-50px] right-[-50px] w-48 h-48 bg-blue-600 rounded-full blur-[60px] opacity-40"></div>
+                   
+                   <div className="relative z-10">
+                       <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-6 shadow-lg shadow-blue-900/50">
+                           <Zap size={24} fill="white" />
+                       </div>
+                       <h2 className="text-2xl font-bold mb-2">Unlock Pro Power</h2>
+                       <p className="text-slate-300 text-sm leading-relaxed">
+                           Take control of your finances with automated daily scans, multi-user access, and advanced AI insights.
+                       </p>
+                   </div>
+
+                   <div className="relative z-10 mt-8">
+                       <div className="flex items-center space-x-2 text-yellow-400 mb-2">
+                           <Star size={16} fill="currentColor"/>
+                           <Star size={16} fill="currentColor"/>
+                           <Star size={16} fill="currentColor"/>
+                           <Star size={16} fill="currentColor"/>
+                           <Star size={16} fill="currentColor"/>
+                       </div>
+                       <p className="text-xs text-slate-400">"DupDetect Professional saved us 15 hours a month!"</p>
+                   </div>
+               </div>
+
+               {/* Right: Plan Comparison */}
+               <div className="p-8 md:w-3/5 bg-white">
+                   <h3 className="text-xl font-bold text-slate-800 mb-6">Why Upgrade to Professional?</h3>
+                   
+                   <div className="space-y-4 mb-8">
+                       <div className="flex items-start">
+                           <div className="p-1 bg-green-100 rounded-full mr-3 mt-0.5">
+                               <Check size={14} className="text-green-600" strokeWidth={3}/>
+                           </div>
+                           <div>
+                               <h4 className="font-semibold text-slate-800 text-sm">5 QuickBooks Accounts</h4>
+                               <p className="text-xs text-slate-500">Manage multiple entities from one dashboard.</p>
+                           </div>
+                       </div>
+                       <div className="flex items-start">
+                           <div className="p-1 bg-green-100 rounded-full mr-3 mt-0.5">
+                               <Check size={14} className="text-green-600" strokeWidth={3}/>
+                           </div>
+                           <div>
+                               <h4 className="font-semibold text-slate-800 text-sm">Automated Daily Scans</h4>
+                               <p className="text-xs text-slate-500">Set it and forget it. We'll email you results.</p>
+                           </div>
+                       </div>
+                       <div className="flex items-start">
+                           <div className="p-1 bg-green-100 rounded-full mr-3 mt-0.5">
+                               <Check size={14} className="text-green-600" strokeWidth={3}/>
+                           </div>
+                           <div>
+                               <h4 className="font-semibold text-slate-800 text-sm">Advanced AI Analysis</h4>
+                               <p className="text-xs text-slate-500">Detect fuzzy matches and complex duplicates.</p>
+                           </div>
+                       </div>
+                       <div className="flex items-start">
+                           <div className="p-1 bg-green-100 rounded-full mr-3 mt-0.5">
+                               <Check size={14} className="text-green-600" strokeWidth={3}/>
+                           </div>
+                           <div>
+                               <h4 className="font-semibold text-slate-800 text-sm">Audit Logs & Team Access</h4>
+                               <p className="text-xs text-slate-500">Track who did what and invite 2 team members.</p>
+                           </div>
+                       </div>
+                   </div>
+
+                   <div className="flex items-center justify-between border-t border-slate-100 pt-6">
+                       <div>
+                           <span className="block text-xs text-slate-500 uppercase font-bold">Price</span>
+                           <div className="flex items-baseline">
+                               <span className="text-3xl font-bold text-slate-900">$49</span>
+                               <span className="text-sm text-slate-500">/mo</span>
+                           </div>
+                       </div>
+                       <button 
+                           onClick={confirmUpgrade}
+                           className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg shadow-blue-500/30 transition-all hover:-translate-y-1"
+                       >
+                           Upgrade Now
+                       </button>
+                   </div>
+               </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 };
