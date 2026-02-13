@@ -15,10 +15,8 @@ import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-reac
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Backend API URL: same origin in production, localhost in dev
-const PRODUCTION_BACKEND_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3001'
-  : window.location.origin;
+// This is the target URL for your backend API.
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
@@ -26,13 +24,8 @@ const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
 ];
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>(() => {
-    // Restore view if user was authenticated before OAuth redirect
-    return localStorage.getItem('dd_authenticated') === 'true' ? 'app' : 'landing';
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('dd_authenticated') === 'true';
-  });
+  const [currentView, setCurrentView] = useState<ViewState>('landing');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
@@ -65,34 +58,20 @@ const App: React.FC = () => {
       setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Handle OAuth callback redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     if (status === 'success') {
         setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
-        setIsAuthenticated(true);
-        setCurrentView('app');
-        localStorage.setItem('dd_authenticated', 'true');
-        handleAddAuditLog('Connection', 'QuickBooks Online connected successfully', 'success');
-    } else if (status === 'error') {
-        // OAuth failed but keep user logged in if they were before
-        const errorMsg = params.get('error') || 'Unknown error';
-        console.warn('[QB OAuth] Error:', errorMsg);
-        if (isAuthenticated) {
-          setCurrentView('app');
-        }
-    }
-    // Clean up URL params
-    if (status) {
-      window.history.replaceState({}, document.title, window.location.pathname);
+        setIsAuthenticated(true); 
+        setCurrentView('app');    
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('app');
-    localStorage.setItem('dd_authenticated', 'true');
     // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
@@ -109,10 +88,9 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
-    localStorage.removeItem('dd_authenticated');
   };
 
-  // Helper to run the simulation (used in multiple places)
+  // Helper to run the simulation (used in fallback scenarios)
   const runSimulation = (reason: string) => {
       console.log(`Switching to Simulation Mode: ${reason}`);
       setTimeout(() => {
@@ -120,8 +98,7 @@ const App: React.FC = () => {
           setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
           handleAddAuditLog('Connection', 'QuickBooks Online connected (Simulation)', 'success');
           alert(
-              `DEMO MODE ACTIVE\n\n` +
-              `QuickBooks connection simulated successfully.\n` +
+              `Note: Backend connection failed, so we switched to DEMO MODE.\n\n` +
               `Reason: ${reason}`
           );
       }, 1500);
@@ -129,42 +106,40 @@ const App: React.FC = () => {
 
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
-
-      const currentFrontendUrl = window.location.origin;
-
-      // Always try the real backend first, fall back to simulation only if unreachable
+      
+      // Removed the forced simulation check for development environments.
+      // Now attempting to contact the backend directly for real Sandbox OAuth.
+      
+      const currentFrontendUrl = window.location.origin; 
+      
       try {
         console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
-
+        
+        // We set a timeout to fail fast if the backend is down
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(5000)
+            signal: AbortSignal.timeout(5000) 
         });
-
+        
         if (!response.ok) {
              throw new Error(`Backend Error ${response.status}`);
         }
 
         const data = await response.json();
         if (data.url) {
+            // Redirect the user to the QuickBooks OAuth page
             window.location.href = data.url;
         } else {
             throw new Error("Invalid response from backend");
         }
 
       } catch (error) {
-          // Fallback to Simulation if backend is not running
+          // If the real connection fails (backend down, cors, etc), we allow fallback to simulation
+          // so the user isn't stuck.
           console.warn("Backend unreachable, falling back to demo:", error);
-          runSimulation("Backend Not Connected (Live Demo Mode)");
+          runSimulation("Backend Unreachable - Check console for details.");
       }
-  };
-
-  const handleDisconnectQuickBooks = () => {
-      const confirmed = window.confirm('Are you sure you want to disconnect QuickBooks? You will need to reconnect to run scans.');
-      if (!confirmed) return;
-      setUser(prev => ({ ...prev, isQuickBooksConnected: false }));
-      handleAddAuditLog('Disconnection', 'QuickBooks Online disconnected', 'warning');
   };
 
   const handleExport = () => {
@@ -323,10 +298,9 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-            <UserProfile
-                user={user}
+            <UserProfile 
+                user={user} 
                 onConnectQuickBooks={handleConnectQuickBooks}
-                onDisconnectQuickBooks={handleDisconnectQuickBooks}
                 isConnectingQB={isConnectingQB}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {
