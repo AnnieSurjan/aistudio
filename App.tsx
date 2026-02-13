@@ -173,6 +173,13 @@ const App: React.FC = () => {
       }
   };
 
+  const handleDisconnectQuickBooks = () => {
+      const confirmed = window.confirm('Are you sure you want to disconnect QuickBooks? You will need to reconnect to run scans.');
+      if (!confirmed) return;
+      setUser(prev => ({ ...prev, isQuickBooksConnected: false }));
+      handleAddAuditLog('Disconnection', 'QuickBooks Online disconnected', 'warning');
+  };
+
   const handleExport = () => {
       const csvContent = "data:text/csv;charset=utf-8,ID,Date,Amount,Entity,Reason\nTXN-001,2023-10-25,1500.00,Acme Corp,Exact Match";
       const encodedUri = encodeURI(csvContent);
@@ -329,9 +336,10 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-            <UserProfile 
-                user={user} 
+            <UserProfile
+                user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
+                onDisconnectQuickBooks={handleDisconnectQuickBooks}
                 isConnectingQB={isConnectingQB}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {

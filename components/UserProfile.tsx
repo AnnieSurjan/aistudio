@@ -6,6 +6,7 @@ import LegalModal from './LegalModal';
 interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
+  onDisconnectQuickBooks?: () => void;
   isConnectingQB?: boolean;
   onManagePlan?: () => void;
 }
@@ -16,7 +17,7 @@ const MOCK_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, isConnectingQB, onManagePlan }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onDisconnectQuickBooks, isConnectingQB, onManagePlan }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -82,7 +83,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
                 </div>
                 
                 {user.isQuickBooksConnected ? (
-                    <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
+                    <button
+                        onClick={onDisconnectQuickBooks}
+                        className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm"
+                    >
                         Disconnect
                     </button>
                 ) : (
