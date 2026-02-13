@@ -15,12 +15,9 @@ import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-reac
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Backend API URL: try localhost:3001 first (dev server), then Render, then same origin
-const BACKEND_URLS = [
-  'http://localhost:3001',
-  'https://dupdetect-frontend.onrender.com',
-  window.location.origin,
-];
+// This is the target URL for your backend API.
+// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
@@ -46,7 +43,7 @@ const App: React.FC = () => {
     email: 'alex@finance-pro.com',
     role: UserRole.MANAGER, 
     plan: 'Starter', // Default to starter
-    companyName: 'Finance Pro LLC',
+    companyName: '', // Empty by default, will be populated upon connection
     isQuickBooksConnected: false
   });
 
@@ -65,10 +62,22 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
+    
+    // Handle successful redirect from QuickBooks OAuth
     if (status === 'success') {
-        setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
+        // In a full production app, you would fetch the company info from your backend here.
+        // For now, we assume if the backend redirected with success, we are connected to the Sandbox.
+        setUser(prev => ({ 
+            ...prev, 
+            isQuickBooksConnected: true,
+            companyName: 'QuickBooks Sandbox' 
+        }));
+        
         setIsAuthenticated(true); 
         setCurrentView('app');    
+        handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
+        
+        // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -94,62 +103,37 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
-  // Helper to run the simulation (used in fallback scenarios)
-  const runSimulation = (reason: string) => {
-      console.log(`Switching to Simulation Mode: ${reason}`);
-      setTimeout(() => {
-          setIsConnectingQB(false);
-          setUser(prev => ({ ...prev, isQuickBooksConnected: true }));
-          handleAddAuditLog('Connection', 'QuickBooks Online connected (Simulation)', 'success');
-          alert(
-              `Note: Backend connection failed, so we switched to DEMO MODE.\n\n` +
-              `Reason: ${reason}`
-          );
-      }, 1500);
-  };
-
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
-
-      const currentFrontendUrl = window.location.origin;
-
-      // Try each backend URL in order, fall back to simulation if none work
-      for (const backendUrl of BACKEND_URLS) {
-        try {
-          console.log(`Attempting to connect to backend: ${backendUrl}`);
-
-          const response = await fetch(`${backendUrl}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
-              method: 'GET',
-              headers: { 'Content-Type': 'application/json' },
-              signal: AbortSignal.timeout(20000)
-          });
-
-          if (!response.ok) {
-               throw new Error(`Backend Error ${response.status}`);
-          }
-
-          const data = await response.json();
-          if (data.url) {
-              window.location.href = data.url;
-              return;
-          } else {
-              throw new Error("Invalid response from backend");
-          }
-
-        } catch (error) {
-            console.warn(`Backend at ${backendUrl} unreachable:`, error);
+      
+      const currentFrontendUrl = window.location.origin; 
+      
+      try {
+        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
+        
+        // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        
+        if (!response.ok) {
+             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
         }
+
+        const data = await response.json();
+        if (data.url) {
+            // Redirect the user to the real QuickBooks OAuth page provided by the backend
+            window.location.href = data.url;
+        } else {
+            throw new Error("Invalid response from backend: No redirect URL found.");
+        }
+
+      } catch (error) {
+          console.error("Connection failed:", error);
+          alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
+          setIsConnectingQB(false);
       }
-
-      // All backends failed - fall back to simulation
-      runSimulation("Backend Not Connected (Live Demo Mode)");
-  };
-
-  const handleDisconnectQuickBooks = () => {
-      const confirmed = window.confirm('Are you sure you want to disconnect QuickBooks? You will need to reconnect to run scans.');
-      if (!confirmed) return;
-      setUser(prev => ({ ...prev, isQuickBooksConnected: false }));
-      handleAddAuditLog('Disconnection', 'QuickBooks Online disconnected', 'warning');
   };
 
   const handleExport = () => {
@@ -308,10 +292,9 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-            <UserProfile
-                user={user}
+            <UserProfile 
+                user={user} 
                 onConnectQuickBooks={handleConnectQuickBooks}
-                onDisconnectQuickBooks={handleDisconnectQuickBooks}
                 isConnectingQB={isConnectingQB}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {
