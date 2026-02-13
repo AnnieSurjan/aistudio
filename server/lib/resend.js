@@ -20,7 +20,8 @@ function getResendClient() {
 async function sendVerificationEmail(toEmail, code) {
   const resend = getResendClient();
 
-  const fromAddress = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+  const fromAddress = `Dup-Detect <${fromEmail}>`;
 
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
@@ -59,14 +60,17 @@ async function sendVerificationEmail(toEmail, code) {
     });
 
     if (error) {
-      console.error('[Resend] Failed to send email:', error);
+      console.error('[Resend] Failed to send email:', JSON.stringify(error));
+      console.error('[Resend] From:', fromAddress, '| To:', toEmail);
       return { success: false, error: error.message };
     }
 
     console.log('[Resend] Verification email sent to', toEmail, '- ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err) {
-    console.error('[Resend] Exception sending email:', err);
+    console.error('[Resend] Exception sending email:', err.message);
+    console.error('[Resend] API Key set:', !!process.env.RESEND_API_KEY);
+    console.error('[Resend] From:', fromAddress, '| To:', toEmail);
     return { success: false, error: err.message };
   }
 }
