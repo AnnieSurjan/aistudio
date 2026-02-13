@@ -7,23 +7,23 @@ const randomDate = (start: Date, end: Date) => {
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
   // Exact Match Group (USD)
-  { id: 'TXN-001', date: '2023-10-25', amount: 1500.00, currency: 'USD', type: TransactionType.INVOICE, entityName: 'Acme Corp', status: 'pending' },
-  { id: 'TXN-002', date: '2023-10-25', amount: 1500.00, currency: 'USD', type: TransactionType.INVOICE, entityName: 'Acme Corp', status: 'pending' },
+  { id: 'TXN-001', date: '2023-10-25', amount: 1500.00, currency: 'USD', type: TransactionType.INVOICE, entityName: 'Acme Corp', account: 'Accounts Receivable', status: 'pending' },
+  { id: 'TXN-002', date: '2023-10-25', amount: 1500.00, currency: 'USD', type: TransactionType.INVOICE, entityName: 'Acme Corp', account: 'Accounts Receivable', status: 'pending' },
   
   // Fuzzy Amount Group (USD)
-  { id: 'TXN-003', date: '2023-10-26', amount: 499.99, currency: 'USD', type: TransactionType.BILL, entityName: 'Office Depot', status: 'pending' },
-  { id: 'TXN-004', date: '2023-10-26', amount: 500.00, currency: 'USD', type: TransactionType.PURCHASE, entityName: 'Office Depot', status: 'pending' },
+  { id: 'TXN-003', date: '2023-10-26', amount: 499.99, currency: 'USD', type: TransactionType.BILL, entityName: 'Office Depot', account: 'Office Supplies', status: 'pending' },
+  { id: 'TXN-004', date: '2023-10-26', amount: 500.00, currency: 'USD', type: TransactionType.PURCHASE, entityName: 'Office Depot', account: 'Office Supplies', status: 'pending' },
 
   // Duplicate in EUR (Common for EU/Hungary business)
-  { id: 'TXN-EUR-1', date: '2023-11-15', amount: 1250.00, currency: 'EUR', type: TransactionType.BILL, entityName: 'German Supplier Gmbh', status: 'pending' },
-  { id: 'TXN-EUR-2', date: '2023-11-15', amount: 1250.00, currency: 'EUR', type: TransactionType.BILL, entityName: 'German Supplier Gmbh', status: 'pending' },
+  { id: 'TXN-EUR-1', date: '2023-11-15', amount: 1250.00, currency: 'EUR', type: TransactionType.BILL, entityName: 'German Supplier Gmbh', account: 'Cost of Goods Sold', status: 'pending' },
+  { id: 'TXN-EUR-2', date: '2023-11-15', amount: 1250.00, currency: 'EUR', type: TransactionType.BILL, entityName: 'German Supplier Gmbh', account: 'Cost of Goods Sold', status: 'pending' },
 
   // Same Memo Group (HUF - demonstrating local currency support)
-  { id: 'TXN-HUF-1', date: '2023-11-01', amount: 45000.00, currency: 'HUF', type: TransactionType.JOURNAL, entityName: 'Local Consultant', memo: 'Havi díj Október', status: 'pending' },
-  { id: 'TXN-HUF-2', date: '2023-11-05', amount: 45000.00, currency: 'HUF', type: TransactionType.JOURNAL, entityName: 'Local Consultant', memo: 'Havi díj Október', status: 'pending' },
+  { id: 'TXN-HUF-1', date: '2023-11-01', amount: 45000.00, currency: 'HUF', type: TransactionType.JOURNAL, entityName: 'Local Consultant', account: 'Professional Services', memo: 'Havi díj Október', status: 'pending' },
+  { id: 'TXN-HUF-2', date: '2023-11-05', amount: 45000.00, currency: 'HUF', type: TransactionType.JOURNAL, entityName: 'Local Consultant', account: 'Professional Services', memo: 'Havi díj Október', status: 'pending' },
 
   // Unique
-  { id: 'TXN-007', date: '2023-11-10', amount: 2500.00, currency: 'USD', type: TransactionType.PAYMENT, entityName: 'Global Tech', status: 'pending' },
+  { id: 'TXN-007', date: '2023-11-10', amount: 2500.00, currency: 'USD', type: TransactionType.PAYMENT, entityName: 'Global Tech', account: 'Undeposited Funds', status: 'pending' },
 ];
 
 export const MOCK_SCAN_HISTORY: ScanResult[] = [
