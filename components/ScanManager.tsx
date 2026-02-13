@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown } from 'lucide-react';
 
 interface ScanManagerProps {
-  onExport: () => void;
+  onExport: () => void; // Kept for interface compatibility but logic moved internal
   onAddAuditLog: (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success') => void;
   user: UserProfile;
 }
@@ -27,6 +27,12 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [filterEntity, setFilterEntity] = useState('');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterMaxAmount, setFilterMaxAmount] = useState('');
+  const [filterDateStart, setFilterDateStart] = useState('');
+  const [filterDateEnd, setFilterDateEnd] = useState('');
+  const [filterAccount, setFilterAccount] = useState('');
+
+  // Export State
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Rules Engine State
   const [showRulesModal, setShowRulesModal] = useState(false);
@@ -84,9 +90,10 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   };
 
   const handleOpenInQB = (txnId: string, type: string) => {
-      // FIX: Changed URL to Sandbox environment
+      // Alert user about sandbox limitation
+      alert("Opening QuickBooks Sandbox...\n\nNote: You must be logged into your QBO Sandbox account in another tab for this link to load correctly, otherwise it may hang.");
+
       const baseUrl = "https://app.sandbox.qbo.intuit.com/app";
-      
       let path = "";
       switch(type.toLowerCase()) {
           case 'invoice': path = 'invoice'; break;
@@ -96,7 +103,113 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
           default: path = 'sales';
       }
       const url = `${baseUrl}/${path}?txnId=${txnId}`;
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Export Logic
+  const handleExportCSV = () => {
+    if (duplicates.length === 0) {
+        alert("No duplicates to export.");
+        return;
+    }
+
+    const headers = ['Group ID', 'Reason', 'Confidence', 'Txn ID', 'Date', 'Entity', 'Account', 'Amount', 'Currency', 'Memo'];
+    const rows = duplicates.flatMap(group => 
+        group.transactions.map(txn => [
+            group.id,
+            `"${group.reason}"`,
+            group.confidenceScore,
+            txn.id,
+            txn.date,
+            `"${txn.entityName}"`,
+            `"${txn.account || ''}"`,
+            txn.amount,
+            txn.currency,
+            `"${txn.memo || ''}"`
+        ].join(','))
+    );
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `dupdetect_export_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setShowExportMenu(false);
+    onAddAuditLog('Export', `Exported ${rows.length} duplicate transactions to CSV`, 'info');
+  };
+
+  const handleExportPDF = () => {
+     if (duplicates.length === 0) {
+        alert("No duplicates to export.");
+        return;
+    }
+    // Simulate PDF generation by opening a print view
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        const html = `
+            <html>
+            <head>
+                <title>Duplicate Report - DupDetect</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    h1 { color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+                    .meta { color: #64748b; margin-bottom: 20px; font-size: 0.9em; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th { background: #f1f5f9; padding: 8px; text-align: left; font-size: 0.85em; border: 1px solid #cbd5e1; }
+                    td { padding: 8px; font-size: 0.85em; border: 1px solid #cbd5e1; }
+                    .group-header { background: #e0f2fe; font-weight: bold; }
+                    .amount { text-align: right; font-family: monospace; }
+                </style>
+            </head>
+            <body>
+                <h1>Duplicate Transaction Report</h1>
+                <div class="meta">
+                    Generated on: ${new Date().toLocaleString()}<br/>
+                    Total Groups Found: ${duplicates.length}<br/>
+                    Generated by: ${user.name}
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Date</th>
+                            <th>Entity</th>
+                            <th>Account</th>
+                            <th>Memo</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${duplicates.map(group => `
+                            <tr class="group-header">
+                                <td colspan="6">Group: ${group.id} - ${group.reason} (${(group.confidenceScore * 100).toFixed(0)}%)</td>
+                            </tr>
+                            ${group.transactions.map(t => `
+                                <tr>
+                                    <td>${t.id}</td>
+                                    <td>${t.date}</td>
+                                    <td>${t.entityName}</td>
+                                    <td>${t.account || '-'}</td>
+                                    <td>${t.memo || '-'}</td>
+                                    <td class="amount">${t.currency} ${t.amount.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        `).join('')}
+                    </tbody>
+                </table>
+                <script>window.print();</script>
+            </body>
+            </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        onAddAuditLog('Export', `Generated PDF report for ${duplicates.length} groups`, 'info');
+    }
+    setShowExportMenu(false);
   };
 
   // Exception / Rules Handling
@@ -204,18 +317,30 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     // 2. Check UI Filters
     const matchesEntity = mainTxn.entityName.toLowerCase().includes(filterEntity.toLowerCase());
     
+    // Date Filters
+    let matchesDate = true;
+    const txnDate = new Date(mainTxn.date);
+    if (filterDateStart && txnDate < new Date(filterDateStart)) matchesDate = false;
+    if (filterDateEnd && txnDate > new Date(filterDateEnd)) matchesDate = false;
+
+    // Account Filter
+    const matchesAccount = filterAccount === '' || (mainTxn.account && mainTxn.account.toLowerCase().includes(filterAccount.toLowerCase()));
+
     const amount = mainTxn.amount;
     const min = filterMinAmount ? parseFloat(filterMinAmount) : 0;
     const max = filterMaxAmount ? parseFloat(filterMaxAmount) : Infinity;
     const matchesAmount = amount >= min && amount <= max;
 
-    return matchesEntity && matchesAmount;
+    return matchesEntity && matchesAmount && matchesDate && matchesAccount;
   });
 
   const clearFilters = () => {
       setFilterEntity('');
       setFilterMinAmount('');
       setFilterMaxAmount('');
+      setFilterDateStart('');
+      setFilterDateEnd('');
+      setFilterAccount('');
   };
 
   const activeRulesCount = rules.filter(r => r.isActive).length;
@@ -262,12 +387,33 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                     <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
                 </div>
             </div>
-          <button 
-             onClick={onExport}
-             className="flex items-center space-x-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors shadow-sm">
-            <Download size={18} />
-            <span className="hidden sm:inline">Export CSV</span>
-          </button>
+
+          {/* Export Dropdown */}
+          <div className="relative">
+             <button 
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="flex items-center space-x-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors shadow-sm h-full"
+             >
+                <Download size={18} />
+                <span className="hidden sm:inline">Export</span>
+                <ChevronDown size={14} />
+             </button>
+             
+             {showExportMenu && (
+                 <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-20 overflow-hidden">
+                        <button onClick={handleExportCSV} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm text-slate-700 flex items-center">
+                            <FileText size={16} className="mr-2 text-green-600"/> Export as CSV
+                        </button>
+                        <button onClick={handleExportPDF} className="w-full text-left px-4 py-3 hover:bg-slate-50 text-sm text-slate-700 flex items-center border-t border-slate-100">
+                            <FileText size={16} className="mr-2 text-red-600"/> Export as PDF
+                        </button>
+                    </div>
+                 </>
+             )}
+          </div>
+
           <button 
             onClick={runScan}
             disabled={isScanning}
@@ -312,38 +458,69 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                     <Filter size={16} className="mr-2"/>
                     Filter Results
                 </div>
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Entity Search */}
+                    <div className="relative col-span-1 md:col-span-1">
                         <Search className="absolute top-2.5 left-3 text-slate-400" size={16}/>
                         <input 
                             type="text" 
-                            placeholder="Search Customer/Vendor..." 
+                            placeholder="Vendor/Customer" 
                             value={filterEntity}
                             onChange={(e) => setFilterEntity(e.target.value)}
                             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </div>
-                    <div className="flex gap-2">
+                    
+                     {/* Account Filter */}
+                    <div className="relative col-span-1 md:col-span-1">
+                        <input 
+                            type="text" 
+                            placeholder="Account (e.g. Sales)" 
+                            value={filterAccount}
+                            onChange={(e) => setFilterAccount(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+
+                    {/* Date Range */}
+                    <div className="flex gap-2 col-span-1 md:col-span-1">
+                        <input 
+                            type="date"
+                            value={filterDateStart}
+                            onChange={(e) => setFilterDateStart(e.target.value)}
+                            className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                        <input 
+                            type="date"
+                            value={filterDateEnd}
+                            onChange={(e) => setFilterDateEnd(e.target.value)}
+                            className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                    </div>
+
+                    {/* Amount & Clear */}
+                    <div className="flex gap-2 col-span-1 md:col-span-1">
                          <input 
                             type="number" 
                             placeholder="Min $" 
                             value={filterMinAmount}
                             onChange={(e) => setFilterMinAmount(e.target.value)}
-                            className="w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-20 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                          <input 
                             type="number" 
                             placeholder="Max $" 
                             value={filterMaxAmount}
                             onChange={(e) => setFilterMaxAmount(e.target.value)}
-                            className="w-24 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-20 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
+                        {(filterEntity || filterMinAmount || filterMaxAmount || filterDateStart || filterDateEnd || filterAccount) && (
+                            <button onClick={clearFilters} className="text-slate-400 hover:text-red-500 transition-colors ml-auto">
+                                <XCircle size={20} />
+                            </button>
+                        )}
                     </div>
-                    {(filterEntity || filterMinAmount || filterMaxAmount) && (
-                         <button onClick={clearFilters} className="text-slate-500 hover:text-red-500 transition-colors">
-                            <XCircle size={20} />
-                         </button>
-                    )}
                 </div>
             </div>
 
@@ -391,6 +568,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                             <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/50">
                                 <th className="px-6 py-3 font-medium">Date</th>
                                 <th className="px-6 py-3 font-medium">Entity</th>
+                                <th className="px-6 py-3 font-medium">Account</th>
                                 <th className="px-6 py-3 font-medium">Memo</th>
                                 <th className="px-6 py-3 font-medium text-right">Amount</th>
                             </tr>
@@ -400,6 +578,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                                 <tr key={txn.id} className="hover:bg-slate-50 group transition-colors">
                                 <td className="px-6 py-3 text-slate-700">{txn.date}</td>
                                 <td className="px-6 py-3 text-slate-700 font-medium">{txn.entityName}</td>
+                                <td className="px-6 py-3 text-slate-500 text-xs">{txn.account || '-'}</td>
                                 <td className="px-6 py-3 text-slate-500 italic truncate max-w-xs">{txn.memo || '-'}</td>
                                 <td className="px-6 py-3 text-slate-800 font-mono text-right font-bold">
                                     {txn.currency} {txn.amount.toFixed(2)}
@@ -491,6 +670,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                                  <div className={`p-2 rounded ${selectedGroup.transactions[0].entityName !== selectedGroup.transactions[1].entityName ? 'bg-yellow-50' : ''}`}>
                                      <label className="text-xs font-bold text-slate-400 uppercase">Payee / Entity</label>
                                      <div className="text-slate-900">{txn.entityName}</div>
+                                 </div>
+
+                                 <div className={`p-2 rounded ${selectedGroup.transactions[0].account !== selectedGroup.transactions[1].account ? 'bg-yellow-50' : ''}`}>
+                                     <label className="text-xs font-bold text-slate-400 uppercase">Account</label>
+                                     <div className="text-slate-900 text-sm">{txn.account || '-'}</div>
                                  </div>
 
                                  <div>
