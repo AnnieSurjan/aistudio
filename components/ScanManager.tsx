@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save } from 'lucide-react';
 
 interface ScanManagerProps {
   onExport: () => void;
@@ -34,6 +34,12 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       { id: '1', name: 'Ignore small variances', type: 'amount_below', value: 5, isActive: true }
   ]);
   const [newRule, setNewRule] = useState<Partial<ExclusionRule>>({ type: 'vendor_contains', isActive: true, name: '' });
+
+  // Email Reporting State
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailRecipients, setEmailRecipients] = useState('client@example.com');
+  const [emailFrequency, setEmailFrequency] = useState('weekly');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -78,7 +84,9 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   };
 
   const handleOpenInQB = (txnId: string, type: string) => {
-      const baseUrl = "https://app.qbo.intuit.com/app";
+      // FIX: Changed URL to Sandbox environment
+      const baseUrl = "https://app.sandbox.qbo.intuit.com/app";
+      
       let path = "";
       switch(type.toLowerCase()) {
           case 'invoice': path = 'invoice'; break;
@@ -119,6 +127,17 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
   const handleDeleteRule = (id: string) => {
       setRules(prev => prev.filter(r => r.id !== id));
+  };
+
+  // Email Reporting Handler
+  const handleSaveEmailSettings = () => {
+      setIsSavingEmail(true);
+      // Simulate API call
+      setTimeout(() => {
+          setIsSavingEmail(false);
+          setShowEmailModal(false);
+          onAddAuditLog('Reporting', `Updated client reporting: ${emailFrequency} emails to ${emailRecipients}`, 'success');
+      }, 1000);
   };
 
   // Resolution Actions
@@ -210,6 +229,15 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
           <p className="text-slate-500">Detect and merge duplicate transactions.</p>
         </div>
         <div className="flex flex-wrap gap-3">
+            <button 
+                onClick={() => setShowEmailModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                title="Configure Automated Client Reports"
+            >
+                <Mail size={18} />
+                <span className="hidden sm:inline">Client Reporting</span>
+            </button>
+
             <button 
                 onClick={() => setShowRulesModal(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
@@ -475,7 +503,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                                         onClick={() => handleOpenInQB(txn.id, txn.type)}
                                         className="text-blue-600 text-xs hover:underline flex items-center"
                                       >
-                                          <ExternalLink size={12} className="mr-1"/> View in QB
+                                          <ExternalLink size={12} className="mr-1"/> View in QB (Sandbox)
                                       </button>
                                       <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">{txn.type}</span>
                                  </div>
@@ -504,6 +532,83 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                  </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Email Reporting Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full flex flex-col">
+                 <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                     <div className="flex items-center space-x-3">
+                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                             <Mail size={20} />
+                         </div>
+                         <div>
+                             <h3 className="text-lg font-bold text-slate-800">Client Reporting</h3>
+                             <p className="text-slate-500 text-xs">Automate scan summaries for your clients.</p>
+                         </div>
+                     </div>
+                     <button onClick={() => setShowEmailModal(false)} className="text-slate-400 hover:text-slate-600">
+                         <X size={20}/>
+                     </button>
+                 </div>
+                 
+                 <div className="p-6 space-y-4">
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Recipient Emails</label>
+                         <p className="text-xs text-slate-400 mb-2">Separate multiple emails with commas.</p>
+                         <input 
+                            type="text" 
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="client@company.com, accountant@firm.com"
+                            value={emailRecipients}
+                            onChange={(e) => setEmailRecipients(e.target.value)}
+                         />
+                     </div>
+                     
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Report Frequency</label>
+                         <div className="relative">
+                             <Calendar className="absolute top-2.5 left-3 text-slate-400" size={16} />
+                             <select 
+                                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                value={emailFrequency}
+                                onChange={(e) => setEmailFrequency(e.target.value)}
+                             >
+                                 <option value="daily">Daily Summary</option>
+                                 <option value="weekly">Weekly Report</option>
+                                 <option value="monthly">Monthly Audit</option>
+                             </select>
+                         </div>
+                     </div>
+
+                     <div className="bg-blue-50 p-3 rounded-lg flex items-start text-xs text-blue-800 border border-blue-100">
+                         <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />
+                         Reports will include number of duplicates found, amount saved, and resolution status based on your {emailFrequency} scans.
+                     </div>
+                 </div>
+                 
+                 <div className="p-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50 rounded-b-xl">
+                     <button 
+                        onClick={() => setShowEmailModal(false)} 
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-medium transition-colors"
+                     >
+                        Cancel
+                     </button>
+                     <button 
+                        onClick={handleSaveEmailSettings}
+                        disabled={isSavingEmail}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-sm flex items-center disabled:opacity-70"
+                     >
+                        {isSavingEmail ? 'Saving...' : (
+                            <>
+                                <Save size={16} className="mr-2" /> Save Settings
+                            </>
+                        )}
+                     </button>
+                 </div>
+             </div>
         </div>
       )}
 
