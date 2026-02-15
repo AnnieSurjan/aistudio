@@ -308,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                            <Star size={16} fill="currentColor"/>
                            <Star size={16} fill="currentColor"/>
                        </div>
-                       <p className="text-xs text-slate-400">"DupDetect Professional saved us 15 hours a month!"</p>
+                       <p className="text-xs text-slate-400">"Dup-Detect Professional saved us 15 hours a month!"</p>
                    </div>
                </div>
 

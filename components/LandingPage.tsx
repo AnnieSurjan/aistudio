@@ -67,7 +67,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
           </h1>
           
           <p className="max-w-2xl text-xl text-slate-400 mb-10 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-            DupDetect connects to QuickBooks Online and uses advanced AI to identify, flag, and resolve duplicate transactions that human eyes miss.
+            Dup-Detect connects to QuickBooks Online and uses advanced AI to identify, flag, and resolve duplicate transactions that human eyes miss.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -83,24 +83,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
               <span>Watch Demo</span>
             </button>
           </div>
-
-          <div className="mt-12 flex items-center space-x-4 text-sm text-slate-500 animate-in fade-in zoom-in duration-1000 delay-500">
-             <div className="flex -space-x-2">
-                {[1,2,3,4].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-700 flex items-center justify-center text-xs text-white font-medium">
-                        {String.fromCharCode(64+i)}
-                    </div>
-                ))}
-             </div>
-             <p>Trusted by 2,000+ Accountants</p>
-             <div className="flex text-yellow-500">
-                 <Star size={14} fill="currentColor" />
-                 <Star size={14} fill="currentColor" />
-                 <Star size={14} fill="currentColor" />
-                 <Star size={14} fill="currentColor" />
-                 <Star size={14} fill="currentColor" />
-             </div>
-          </div>
         </div>
       </div>
 
@@ -113,7 +95,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                     <div className="text-slate-400 font-medium">Potential Savings Identified</div>
                 </div>
                 <div className="p-4">
-                    <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 mb-2">1.5k+</div>
+                    <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 mb-2">300+</div>
                     <div className="text-slate-400 font-medium">Hours of Manual Work Saved</div>
                 </div>
                 <div className="p-4">
@@ -128,7 +110,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
       <div className="py-24 bg-gradient-to-b from-slate-100 via-blue-100/50 to-blue-200/30 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-                <h2 className="text-3xl font-bold text-slate-900">Why Accountants Choose DupDetect</h2>
+                <h2 className="text-3xl font-bold text-slate-900">Why Accountants Choose Dup-Detect</h2>
                 <p className="text-slate-500 mt-4 max-w-2xl mx-auto">We don't just match numbers. Our AI understands context, memos, and fuzzy vendor names.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
