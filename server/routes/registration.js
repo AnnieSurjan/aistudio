@@ -206,9 +206,15 @@ router.post('/login', async (req, res) => {
         .from('users')
         .select('*')
         .eq('email', email.toLowerCase())
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
+        console.error('[Login] Supabase query error:', error.message, error.code);
+        return res.status(500).json({ error: 'Login service temporarily unavailable. Please try again later.' });
+      }
+
+      if (!data) {
+        console.warn(`[Login] No user found for email: ${email.toLowerCase()}`);
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
@@ -216,9 +222,15 @@ router.post('/login', async (req, res) => {
         return res.status(403).json({ error: 'Email not verified. Please check your inbox.' });
       }
 
+      if (!data.password_hash) {
+        console.error(`[Login] User ${email} has no password_hash stored`);
+        return res.status(500).json({ error: 'Account error. Please contact support.' });
+      }
+
       // Verify password
       const isValid = await bcrypt.compare(password, data.password_hash);
       if (!isValid) {
+        console.warn(`[Login] Invalid password attempt for: ${email.toLowerCase()}`);
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
@@ -229,8 +241,8 @@ router.post('/login', async (req, res) => {
         companyName: data.company_name,
       };
     } catch (dbErr) {
-      console.warn('[Login] DB check failed:', dbErr.message);
-      return res.status(500).json({ error: 'Login service unavailable' });
+      console.error('[Login] DB connection failed:', dbErr.message);
+      return res.status(500).json({ error: 'Login service unavailable. Please try again later.' });
     }
 
     console.log(`[Login] Successful login: ${email}`);
