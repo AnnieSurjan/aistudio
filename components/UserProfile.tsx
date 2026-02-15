@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile as IUserProfile, UserRole } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Download, Image as ImageIcon } from 'lucide-react';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale } from 'lucide-react';
 import LegalModal from './LegalModal';
 
 interface UserProfileProps {
@@ -48,57 +48,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
   const openLegal = (tab: 'terms' | 'privacy') => {
       setLegalTab(tab);
       setShowLegal(true);
-  };
-
-  const handleDownloadLogo = (variant: 'dark' | 'light') => {
-    // Constructing a high-quality SVG programmatically matches the Logo component design
-    const textColor1 = variant === 'dark' ? '#0f172a' : '#ffffff'; 
-    const textColor2 = variant === 'dark' ? '#1e293b' : '#cbd5e1'; 
-    const subColor = variant === 'dark' ? '#64748b' : '#94a3b8';
-    const bgFill = variant === 'dark' ? 'none' : '#0f172a'; // Add dark background if light variant requested
-
-    const svgContent = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="600" height="160">
-        ${variant === 'light' ? `<rect width="300" height="80" fill="${bgFill}" rx="10"/>` : ''}
-        
-        <!-- Logo Icon Group -->
-        <g transform="translate(15, 15)">
-            <!-- Blue Background -->
-            <rect width="50" height="50" rx="12" fill="#2563eb" />
-            <!-- File Icon Outline -->
-            <path d="M18 12 H26 L34 20 V38 A2 2 0 0 1 32 40 H18 A2 2 0 0 1 16 38 V14 A2 2 0 0 1 18 12" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M26 12 V20 H34" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <line x1="20" y1="26" x2="30" y2="26" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-            <line x1="20" y1="32" x2="30" y2="32" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-            
-            <!-- Search Bubble BG -->
-            <circle cx="48" cy="48" r="14" fill="white" />
-            <circle cx="48" cy="48" r="10" fill="#eff6ff" />
-            <!-- Search Icon -->
-            <circle cx="46" cy="46" r="4" stroke="#2563eb" stroke-width="2" fill="none"/>
-            <line x1="49" y1="49" x2="52" y2="52" stroke="#2563eb" stroke-width="2" stroke-linecap="round" />
-        </g>
-
-        <!-- Text Group -->
-        <g transform="translate(80, 50)">
-             <text font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="${textColor1}">Dup</text>
-             <text x="62" font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="${textColor2}">-</text>
-             <text x="75" font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="#2563eb">Detect</text>
-             
-             <!-- Subtitle -->
-             <text x="2" y="20" font-family="Arial, sans-serif" font-weight="bold" font-size="10" fill="${subColor}" letter-spacing="2" text-transform="uppercase">Accounting Security</text>
-        </g>
-      </svg>
-    `;
-
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dup-detect-logo-${variant}.svg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -371,60 +320,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
             </div>
         </div>
       )}
-
-      {/* Brand Assets Section (NEW) */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-            <ImageIcon className="mr-2 text-purple-600" size={20}/>
-            Brand Assets & Media Kit
-        </h3>
-        <p className="text-sm text-slate-500 mb-6">
-            Download official Dup-Detect logos for your internal documentation or presentations.
-            These vector files (SVG) are scalable to any size.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Standard Logo */}
-            <div className="border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-blue-300 transition-colors">
-                 <div className="flex items-center space-x-3">
-                     <div className="w-12 h-12 bg-white rounded border border-slate-100 flex items-center justify-center">
-                         <FileText className="text-blue-600" size={24}/>
-                     </div>
-                     <div>
-                         <div className="font-bold text-slate-800 text-sm">Standard Logo</div>
-                         <div className="text-xs text-slate-400">Dark text, Transparent BG</div>
-                     </div>
-                 </div>
-                 <button 
-                    onClick={() => handleDownloadLogo('dark')}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Download SVG"
-                 >
-                     <Download size={20} />
-                 </button>
-            </div>
-
-            {/* Dark Mode Logo */}
-            <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 flex items-center justify-between hover:border-blue-500 transition-colors">
-                 <div className="flex items-center space-x-3">
-                     <div className="w-12 h-12 bg-slate-800 rounded border border-slate-700 flex items-center justify-center">
-                         <FileText className="text-white" size={24}/>
-                     </div>
-                     <div>
-                         <div className="font-bold text-white text-sm">Dark Mode Logo</div>
-                         <div className="text-xs text-slate-400">Light text, Dark BG</div>
-                     </div>
-                 </div>
-                 <button 
-                    onClick={() => handleDownloadLogo('light')}
-                    className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-                    title="Download SVG"
-                 >
-                     <Download size={20} />
-                 </button>
-            </div>
-        </div>
-      </div>
 
       {/* Security Card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
