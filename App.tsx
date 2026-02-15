@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
+  const [isConnectingXero, setIsConnectingXero] = useState(false);
   
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -44,7 +45,8 @@ const App: React.FC = () => {
     role: UserRole.MANAGER, 
     plan: 'Starter', // Default to starter
     companyName: '', // Empty by default, will be populated upon connection
-    isQuickBooksConnected: false
+    isQuickBooksConnected: false,
+    isXeroConnected: false
   });
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
@@ -96,6 +98,25 @@ const App: React.FC = () => {
     };
     setAuditLogs(prev => [log, ...prev]);
   };
+  
+  const handleStartDemo = () => {
+      // Setup a Demo User state
+      setUser({
+          name: 'Demo User',
+          email: 'demo@dupdetect.com',
+          role: UserRole.ADMIN,
+          plan: 'Professional',
+          companyName: 'Demo Corp Ltd.',
+          isQuickBooksConnected: true,
+          isXeroConnected: true
+      });
+      setIsAuthenticated(true);
+      setCurrentView('app');
+      setActiveTab('scan'); // Go straight to the action
+      
+      handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
+      alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
+  };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
@@ -134,6 +155,22 @@ const App: React.FC = () => {
           alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
           setIsConnectingQB(false);
       }
+  };
+
+  const handleConnectXero = async () => {
+    setIsConnectingXero(true);
+    // Simulation of Xero OAuth flow
+    setTimeout(() => {
+        setIsConnectingXero(false);
+        setUser(prev => ({ 
+            ...prev, 
+            isXeroConnected: true,
+            // If we didn't have a company name from QB, use this one
+            companyName: prev.companyName || 'Xero Demo Org' 
+        }));
+        handleAddAuditLog('Connection', 'Xero Organization connected successfully', 'success');
+        alert("Xero connected successfully (Mock Mode)");
+    }, 2000);
   };
 
   const handleExport = () => {
@@ -178,6 +215,7 @@ const App: React.FC = () => {
             onGetStarted={() => setCurrentView('auth')} 
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
+            onStartDemo={handleStartDemo}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway 
@@ -214,7 +252,9 @@ const App: React.FC = () => {
                 scanHistory={MOCK_SCAN_HISTORY} 
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
+                onConnectXero={handleConnectXero}
                 isConnectingQB={isConnectingQB}
+                isConnectingXero={isConnectingXero}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
@@ -295,7 +335,9 @@ const App: React.FC = () => {
             <UserProfile 
                 user={user} 
                 onConnectQuickBooks={handleConnectQuickBooks}
+                onConnectXero={handleConnectXero}
                 isConnectingQB={isConnectingQB}
+                isConnectingXero={isConnectingXero}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {
                        handleUpgradeClick('Professional', '49');
