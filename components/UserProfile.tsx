@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { UserProfile as IUserProfile, UserRole } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale } from 'lucide-react';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Download, Image as ImageIcon } from 'lucide-react';
 import LegalModal from './LegalModal';
 
 interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
-  isConnectingQB?: boolean;
   onConnectXero?: () => void;
-  onDisconnectXero?: () => void;
+  isConnectingQB?: boolean;
   isConnectingXero?: boolean;
   onManagePlan?: () => void;
 }
@@ -19,7 +18,7 @@ const MOCK_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onDisconnectQuickBooks, isConnectingQB, onConnectXero, onDisconnectXero, isConnectingXero, onManagePlan }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onManagePlan }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -51,6 +50,57 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
       setShowLegal(true);
   };
 
+  const handleDownloadLogo = (variant: 'dark' | 'light') => {
+    // Constructing a high-quality SVG programmatically matches the Logo component design
+    const textColor1 = variant === 'dark' ? '#0f172a' : '#ffffff'; 
+    const textColor2 = variant === 'dark' ? '#1e293b' : '#cbd5e1'; 
+    const subColor = variant === 'dark' ? '#64748b' : '#94a3b8';
+    const bgFill = variant === 'dark' ? 'none' : '#0f172a'; // Add dark background if light variant requested
+
+    const svgContent = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 80" width="600" height="160">
+        ${variant === 'light' ? `<rect width="300" height="80" fill="${bgFill}" rx="10"/>` : ''}
+        
+        <!-- Logo Icon Group -->
+        <g transform="translate(15, 15)">
+            <!-- Blue Background -->
+            <rect width="50" height="50" rx="12" fill="#2563eb" />
+            <!-- File Icon Outline -->
+            <path d="M18 12 H26 L34 20 V38 A2 2 0 0 1 32 40 H18 A2 2 0 0 1 16 38 V14 A2 2 0 0 1 18 12" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M26 12 V20 H34" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="20" y1="26" x2="30" y2="26" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+            <line x1="20" y1="32" x2="30" y2="32" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+            
+            <!-- Search Bubble BG -->
+            <circle cx="48" cy="48" r="14" fill="white" />
+            <circle cx="48" cy="48" r="10" fill="#eff6ff" />
+            <!-- Search Icon -->
+            <circle cx="46" cy="46" r="4" stroke="#2563eb" stroke-width="2" fill="none"/>
+            <line x1="49" y1="49" x2="52" y2="52" stroke="#2563eb" stroke-width="2" stroke-linecap="round" />
+        </g>
+
+        <!-- Text Group -->
+        <g transform="translate(80, 50)">
+             <text font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="${textColor1}">Dup</text>
+             <text x="62" font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="${textColor2}">-</text>
+             <text x="75" font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="#2563eb">Detect</text>
+             
+             <!-- Subtitle -->
+             <text x="2" y="20" font-family="Arial, sans-serif" font-weight="bold" font-size="10" fill="${subColor}" letter-spacing="2" text-transform="uppercase">Accounting Security</text>
+        </g>
+      </svg>
+    `;
+
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dup-detect-logo-${variant}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
       <h2 className="text-2xl font-bold text-slate-800">Account Settings</h2>
@@ -62,94 +112,85 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                 <Link className="mr-2 text-blue-600" size={20}/>
                 Integrations
              </h3>
-             <div className="flex items-center gap-2">
-                 {user.isQuickBooksConnected && (
-                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center">
-                        <CheckCircle size={12} className="mr-1"/> QB Connected
-                     </span>
-                 )}
-                 {user.isXeroConnected && (
-                     <span className="bg-[#e6f7fc] text-[#13B5EA] px-3 py-1 rounded-full text-xs font-bold flex items-center">
-                        <CheckCircle size={12} className="mr-1"/> Xero Connected
-                     </span>
-                 )}
-             </div>
         </div>
-        <div className="p-8 space-y-8">
-            {/* QuickBooks */}
-            <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-6">
+        <div className="p-8 space-y-6">
+            {/* QuickBooks Row */}
+            <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-6 pb-6 border-b border-slate-100">
                 <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-md">
-                        <span className="text-white font-bold text-2xl">qb</span>
+                    <div className="w-12 h-12 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-md">
+                        <span className="text-white font-bold text-xl">qb</span>
                     </div>
                     <div>
-                        <h4 className="text-lg font-semibold text-slate-900">QuickBooks Online</h4>
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-semibold text-slate-900">QuickBooks Online</h4>
+                             {user.isQuickBooksConnected && (
+                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center">
+                                    <CheckCircle size={10} className="mr-1"/> Active
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-slate-500">
-                            {user.isQuickBooksConnected
-                                ? `Syncing with ${user.companyName}`
-                                : 'Connect your QuickBooks account to scan transactions.'}
+                            {user.isQuickBooksConnected 
+                                ? `Syncing with ${user.companyName}` 
+                                : 'Connect your QuickBooks account.'}
                         </p>
                     </div>
                 </div>
-
+                
                 {user.isQuickBooksConnected ? (
                     <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (
-                    <button
+                    <button 
                         onClick={onConnectQuickBooks}
                         disabled={isConnectingQB}
-                        className="px-6 py-3 bg-[#2CA01C] hover:bg-[#238016] text-white rounded-lg font-bold shadow-lg shadow-green-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait"
+                        className="px-6 py-2.5 bg-[#2CA01C] hover:bg-[#238016] text-white rounded-lg font-bold shadow-lg shadow-green-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm"
                     >
-                        {isConnectingQB && <RotateCw className="animate-spin mr-2" size={18}/>}
-                        Connect to QuickBooks
+                        {isConnectingQB && <RotateCw className="animate-spin mr-2" size={16}/>}
+                        Connect
                     </button>
                 )}
             </div>
 
-            <hr className="border-slate-100"/>
-
-            {/* Xero */}
+            {/* Xero Row */}
             <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-6">
                 <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-[#13B5EA] rounded-lg flex items-center justify-center shadow-md">
-                        <span className="text-white font-bold text-lg">xero</span>
+                    <div className="w-12 h-12 bg-[#00b7e2] rounded-lg flex items-center justify-center shadow-md">
+                        <span className="text-white font-bold text-xl">X</span>
                     </div>
                     <div>
-                        <h4 className="text-lg font-semibold text-slate-900">Xero</h4>
+                        <div className="flex items-center gap-2">
+                             <h4 className="text-lg font-semibold text-slate-900">Xero</h4>
+                             {user.isXeroConnected && (
+                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center">
+                                    <CheckCircle size={10} className="mr-1"/> Active
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-slate-500">
-                            {user.isXeroConnected
-                                ? `Syncing with ${user.xeroOrgName || 'Xero Organisation'}`
-                                : 'Connect your Xero account to scan invoices and bank transactions.'}
+                            {user.isXeroConnected 
+                                ? `Syncing with ${user.companyName}` 
+                                : 'Connect your Xero organization.'}
                         </p>
                     </div>
                 </div>
-
+                
                 {user.isXeroConnected ? (
-                    <button
-                        onClick={onDisconnectXero}
-                        className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm"
-                    >
+                    <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (
-                    <button
+                    <button 
                         onClick={onConnectXero}
                         disabled={isConnectingXero}
-                        className="px-6 py-3 bg-[#13B5EA] hover:bg-[#0e9ac5] text-white rounded-lg font-bold shadow-lg shadow-blue-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait"
+                        className="px-6 py-2.5 bg-[#00b7e2] hover:bg-[#009ec3] text-white rounded-lg font-bold shadow-lg shadow-cyan-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm"
                     >
-                        {isConnectingXero && <RotateCw className="animate-spin mr-2" size={18}/>}
-                        Connect to Xero
+                        {isConnectingXero && <RotateCw className="animate-spin mr-2" size={16}/>}
+                        Connect
                     </button>
                 )}
             </div>
-
-            {(!user.isQuickBooksConnected || !user.isXeroConnected) && (
-                <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded border border-slate-100">
-                    Secure connections using OAuth 2.0. Your credentials are never stored on our servers.
-                </p>
-            )}
         </div>
       </div>
 
@@ -330,6 +371,60 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
             </div>
         </div>
       )}
+
+      {/* Brand Assets Section (NEW) */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
+            <ImageIcon className="mr-2 text-purple-600" size={20}/>
+            Brand Assets & Media Kit
+        </h3>
+        <p className="text-sm text-slate-500 mb-6">
+            Download official Dup-Detect logos for your internal documentation or presentations.
+            These vector files (SVG) are scalable to any size.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Standard Logo */}
+            <div className="border border-slate-200 rounded-xl p-4 flex items-center justify-between hover:border-blue-300 transition-colors">
+                 <div className="flex items-center space-x-3">
+                     <div className="w-12 h-12 bg-white rounded border border-slate-100 flex items-center justify-center">
+                         <FileText className="text-blue-600" size={24}/>
+                     </div>
+                     <div>
+                         <div className="font-bold text-slate-800 text-sm">Standard Logo</div>
+                         <div className="text-xs text-slate-400">Dark text, Transparent BG</div>
+                     </div>
+                 </div>
+                 <button 
+                    onClick={() => handleDownloadLogo('dark')}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Download SVG"
+                 >
+                     <Download size={20} />
+                 </button>
+            </div>
+
+            {/* Dark Mode Logo */}
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 flex items-center justify-between hover:border-blue-500 transition-colors">
+                 <div className="flex items-center space-x-3">
+                     <div className="w-12 h-12 bg-slate-800 rounded border border-slate-700 flex items-center justify-center">
+                         <FileText className="text-white" size={24}/>
+                     </div>
+                     <div>
+                         <div className="font-bold text-white text-sm">Dark Mode Logo</div>
+                         <div className="text-xs text-slate-400">Light text, Dark BG</div>
+                     </div>
+                 </div>
+                 <button 
+                    onClick={() => handleDownloadLogo('light')}
+                    className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                    title="Download SVG"
+                 >
+                     <Download size={20} />
+                 </button>
+            </div>
+        </div>
+      </div>
 
       {/* Security Card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
