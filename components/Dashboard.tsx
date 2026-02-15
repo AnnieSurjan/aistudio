@@ -8,10 +8,12 @@ interface DashboardProps {
   user: UserProfile;
   onConnectQuickBooks: () => void;
   isConnectingQB: boolean;
+  onConnectXero: () => void;
+  isConnectingXero: boolean;
   onUpgrade?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB, onUpgrade }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB, onConnectXero, isConnectingXero, onUpgrade }) => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
@@ -69,38 +71,72 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
         <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
 
-      {/* Connect QuickBooks Banner - Show only if not connected */}
-      {!user.isQuickBooksConnected && (
-        <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col md:flex-row items-center justify-between border border-slate-700 relative overflow-hidden">
-          {/* Decorator */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-          
-          <div className="flex items-center space-x-4 z-10 mb-4 md:mb-0">
-             <div className="w-12 h-12 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-lg shrink-0">
-                <span className="text-white font-bold text-xl">qb</span>
-             </div>
-             <div>
-               <h3 className="text-white font-bold text-lg">Connect QuickBooks Online</h3>
-               <p className="text-slate-400 text-sm">Sync your transactions to start finding duplicates automatically.</p>
-             </div>
-          </div>
-          <button 
-            onClick={onConnectQuickBooks}
-            disabled={isConnectingQB}
-            className="z-10 px-6 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center shrink-0 disabled:opacity-70 disabled:cursor-wait"
-          >
-            {isConnectingQB ? (
-               <>
-                 <RotateCw className="animate-spin mr-2" size={18} />
-                 Connecting...
-               </>
-            ) : (
-               <>
-                 <Link className="mr-2" size={18} />
-                 Connect Now
-               </>
-            )}
-          </button>
+      {/* Connect Banners - Show only if not connected */}
+      {(!user.isQuickBooksConnected || !user.isXeroConnected) && (
+        <div className="space-y-4">
+          {!user.isQuickBooksConnected && (
+            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col md:flex-row items-center justify-between border border-slate-700 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
+              <div className="flex items-center space-x-4 z-10 mb-4 md:mb-0">
+                 <div className="w-12 h-12 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-lg shrink-0">
+                    <span className="text-white font-bold text-xl">qb</span>
+                 </div>
+                 <div>
+                   <h3 className="text-white font-bold text-lg">Connect QuickBooks Online</h3>
+                   <p className="text-slate-400 text-sm">Sync your QuickBooks transactions to start finding duplicates.</p>
+                 </div>
+              </div>
+              <button
+                onClick={onConnectQuickBooks}
+                disabled={isConnectingQB}
+                className="z-10 px-6 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center shrink-0 disabled:opacity-70 disabled:cursor-wait"
+              >
+                {isConnectingQB ? (
+                   <>
+                     <RotateCw className="animate-spin mr-2" size={18} />
+                     Connecting...
+                   </>
+                ) : (
+                   <>
+                     <Link className="mr-2" size={18} />
+                     Connect Now
+                   </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {!user.isXeroConnected && (
+            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col md:flex-row items-center justify-between border border-slate-700 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#13B5EA] rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
+              <div className="flex items-center space-x-4 z-10 mb-4 md:mb-0">
+                 <div className="w-12 h-12 bg-[#13B5EA] rounded-lg flex items-center justify-center shadow-lg shrink-0">
+                    <span className="text-white font-bold text-xl">xero</span>
+                 </div>
+                 <div>
+                   <h3 className="text-white font-bold text-lg">Connect Xero</h3>
+                   <p className="text-slate-400 text-sm">Sync your Xero invoices and bank transactions for duplicate detection.</p>
+                 </div>
+              </div>
+              <button
+                onClick={onConnectXero}
+                disabled={isConnectingXero}
+                className="z-10 px-6 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center shrink-0 disabled:opacity-70 disabled:cursor-wait"
+              >
+                {isConnectingXero ? (
+                   <>
+                     <RotateCw className="animate-spin mr-2" size={18} />
+                     Connecting...
+                   </>
+                ) : (
+                   <>
+                     <Link className="mr-2" size={18} />
+                     Connect Now
+                   </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

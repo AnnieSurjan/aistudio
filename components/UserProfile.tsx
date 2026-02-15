@@ -7,6 +7,9 @@ interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
   isConnectingQB?: boolean;
+  onConnectXero?: () => void;
+  onDisconnectXero?: () => void;
+  isConnectingXero?: boolean;
   onManagePlan?: () => void;
 }
 
@@ -16,7 +19,7 @@ const MOCK_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, isConnectingQB, onManagePlan }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onDisconnectQuickBooks, isConnectingQB, onConnectXero, onDisconnectXero, isConnectingXero, onManagePlan }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -59,13 +62,21 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
                 <Link className="mr-2 text-blue-600" size={20}/>
                 Integrations
              </h3>
-             {user.isQuickBooksConnected && (
-                 <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center">
-                    <CheckCircle size={12} className="mr-1"/> Connected
-                 </span>
-             )}
+             <div className="flex items-center gap-2">
+                 {user.isQuickBooksConnected && (
+                     <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center">
+                        <CheckCircle size={12} className="mr-1"/> QB Connected
+                     </span>
+                 )}
+                 {user.isXeroConnected && (
+                     <span className="bg-[#e6f7fc] text-[#13B5EA] px-3 py-1 rounded-full text-xs font-bold flex items-center">
+                        <CheckCircle size={12} className="mr-1"/> Xero Connected
+                     </span>
+                 )}
+             </div>
         </div>
-        <div className="p-8">
+        <div className="p-8 space-y-8">
+            {/* QuickBooks */}
             <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-6">
                 <div className="flex items-center space-x-4">
                     <div className="w-16 h-16 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-md">
@@ -74,19 +85,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
                     <div>
                         <h4 className="text-lg font-semibold text-slate-900">QuickBooks Online</h4>
                         <p className="text-sm text-slate-500">
-                            {user.isQuickBooksConnected 
-                                ? `Syncing with ${user.companyName}` 
-                                : 'Connect your accounting software to start scanning.'}
+                            {user.isQuickBooksConnected
+                                ? `Syncing with ${user.companyName}`
+                                : 'Connect your QuickBooks account to scan transactions.'}
                         </p>
                     </div>
                 </div>
-                
+
                 {user.isQuickBooksConnected ? (
                     <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (
-                    <button 
+                    <button
                         onClick={onConnectQuickBooks}
                         disabled={isConnectingQB}
                         className="px-6 py-3 bg-[#2CA01C] hover:bg-[#238016] text-white rounded-lg font-bold shadow-lg shadow-green-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait"
@@ -96,9 +107,47 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, is
                     </button>
                 )}
             </div>
-            {!user.isQuickBooksConnected && (
-                <p className="mt-4 text-xs text-slate-400 italic bg-slate-50 p-3 rounded border border-slate-100">
-                    Secure connection using OAuth 2.0. Client ID: ABiIA...JBd2
+
+            <hr className="border-slate-100"/>
+
+            {/* Xero */}
+            <div className="flex items-start md:items-center flex-col md:flex-row justify-between gap-6">
+                <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-[#13B5EA] rounded-lg flex items-center justify-center shadow-md">
+                        <span className="text-white font-bold text-lg">xero</span>
+                    </div>
+                    <div>
+                        <h4 className="text-lg font-semibold text-slate-900">Xero</h4>
+                        <p className="text-sm text-slate-500">
+                            {user.isXeroConnected
+                                ? `Syncing with ${user.xeroOrgName || 'Xero Organisation'}`
+                                : 'Connect your Xero account to scan invoices and bank transactions.'}
+                        </p>
+                    </div>
+                </div>
+
+                {user.isXeroConnected ? (
+                    <button
+                        onClick={onDisconnectXero}
+                        className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm"
+                    >
+                        Disconnect
+                    </button>
+                ) : (
+                    <button
+                        onClick={onConnectXero}
+                        disabled={isConnectingXero}
+                        className="px-6 py-3 bg-[#13B5EA] hover:bg-[#0e9ac5] text-white rounded-lg font-bold shadow-lg shadow-blue-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait"
+                    >
+                        {isConnectingXero && <RotateCw className="animate-spin mr-2" size={18}/>}
+                        Connect to Xero
+                    </button>
+                )}
+            </div>
+
+            {(!user.isQuickBooksConnected || !user.isXeroConnected) && (
+                <p className="text-xs text-slate-400 italic bg-slate-50 p-3 rounded border border-slate-100">
+                    Secure connections using OAuth 2.0. Your credentials are never stored on our servers.
                 </p>
             )}
         </div>
