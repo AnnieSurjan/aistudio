@@ -3,7 +3,7 @@ import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRul
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
 import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Wifi, WifiOff } from 'lucide-react';
 
-const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
+const PRODUCTION_BACKEND_URL = window.location.origin;
 
 interface ScanManagerProps {
   onExport: () => void; // Kept for interface compatibility but logic moved internal

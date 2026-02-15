@@ -32,6 +32,10 @@ app.use(
       if (origin.includes('onrender.com')) {
         return callback(null, true);
       }
+      // Engedelyezzuk a dup-detect.com domain-t
+      if (origin.includes('dup-detect.com')) {
+        return callback(null, true);
+      }
       // Ismeretlen origin: ne dobjunk hibat, csak ne adjunk CORS header-eket
       return callback(null, false);
     },
