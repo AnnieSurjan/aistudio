@@ -63,6 +63,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
   const [scanSource, setScanSource] = useState<'live' | 'mock' | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [liveSources, setLiveSources] = useState<string[]>([]);
 
   const runScan = async () => {
     setIsScanning(true);
@@ -71,63 +72,90 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setHistory([]);
     setShowUndoToast(false);
     setScanError(null);
+    setLiveSources([]);
 
     const isQBConnected = user.isQuickBooksConnected;
+    const isXeroConnected = user.isXeroConnected;
+    const hasLiveSource = isQBConnected || isXeroConnected;
 
-    if (isQBConnected) {
-      // --- REAL QB API SCAN ---
-      onAddAuditLog('Scan Run', 'Live QuickBooks scan initiated', 'info');
+    if (hasLiveSource) {
+      // --- REAL API SCAN (QB + Xero) ---
+      const sources: string[] = [];
+      if (isQBConnected) sources.push('QuickBooks');
+      if (isXeroConnected) sources.push('Xero');
+      setLiveSources(sources);
+
+      onAddAuditLog('Scan Run', `Live scan initiated from: ${sources.join(' + ')}`, 'info');
       setScanSource('live');
       setProgress(10);
 
       try {
+        const fetchPromises: Promise<{ transactions: Transaction[]; source: string; companyName: string }>[] = [];
+
+        if (isQBConnected) {
+          fetchPromises.push(
+            fetch(`${PRODUCTION_BACKEND_URL}/api/quickbooks/scan?userId=user-1`)
+              .then(async (res) => {
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  throw new Error(err.error || `QuickBooks error: ${res.status}`);
+                }
+                const data = await res.json();
+                return { transactions: data.transactions || [], source: 'QuickBooks', companyName: data.meta?.companyName || 'QB' };
+              })
+          );
+        }
+
+        if (isXeroConnected) {
+          fetchPromises.push(
+            fetch(`${PRODUCTION_BACKEND_URL}/api/xero/scan?userId=user-1`)
+              .then(async (res) => {
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  throw new Error(err.error || `Xero error: ${res.status}`);
+                }
+                const data = await res.json();
+                return { transactions: data.transactions || [], source: 'Xero', companyName: data.meta?.companyName || 'Xero' };
+              })
+          );
+        }
+
         setProgress(20);
-        const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/quickbooks/scan?userId=user-1`);
-        setProgress(50);
+        const results = await Promise.all(fetchPromises);
+        setProgress(60);
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+        let allTransactions: Transaction[] = [];
+        const sourceNames: string[] = [];
 
-          if (errorData.code === 'NO_CONNECTION') {
-            throw new Error('No active QuickBooks connection. Please reconnect QuickBooks from your Profile page.');
-          }
-          if (errorData.code === 'TOKEN_EXPIRED') {
-            throw new Error('QuickBooks session expired. Please reconnect QuickBooks.');
-          }
-          throw new Error(errorData.error || `Server error: ${response.status}`);
+        for (const result of results) {
+          allTransactions = [...allTransactions, ...result.transactions];
+          sourceNames.push(`${result.companyName} (${result.transactions.length})`);
         }
 
-        const data = await response.json();
-        setProgress(75);
+        console.log(`[Scan] Fetched ${allTransactions.length} total transactions from: ${sourceNames.join(', ')}`);
 
-        if (!data.success || !data.transactions) {
-          throw new Error('Invalid response from server');
-        }
-
-        const transactions: Transaction[] = data.transactions;
-        console.log(`[Scan] Fetched ${transactions.length} transactions from ${data.meta?.companyName}`);
-
-        setProgress(90);
-        const detected = detectDuplicates(transactions);
+        setProgress(85);
+        const detected = detectDuplicates(allTransactions);
         setProgress(100);
         setIsScanning(false);
         setDuplicates(detected);
 
+        const summaryMsg = `Live scan of ${sourceNames.join(' + ')} finished.`;
         if (detected.length > 0) {
-          onAddAuditLog('Scan Completed', `Live scan of "${data.meta?.companyName}" finished. Found ${detected.length} duplicate groups from ${transactions.length} transactions.`, 'warning');
+          onAddAuditLog('Scan Completed', `${summaryMsg} Found ${detected.length} duplicate groups from ${allTransactions.length} transactions.`, 'warning');
         } else {
-          onAddAuditLog('Scan Completed', `Live scan of "${data.meta?.companyName}" finished. No duplicates found in ${transactions.length} transactions.`, 'success');
+          onAddAuditLog('Scan Completed', `${summaryMsg} No duplicates found in ${allTransactions.length} transactions.`, 'success');
         }
       } catch (error) {
-        console.error('[Scan] QB API error:', error);
+        console.error('[Scan] API error:', error);
         setIsScanning(false);
         setProgress(0);
-        setScanError(error instanceof Error ? error.message : 'Failed to fetch QuickBooks data');
+        setScanError(error instanceof Error ? error.message : 'Failed to fetch transaction data');
         onAddAuditLog('Scan Failed', `Live scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'danger');
       }
     } else {
       // --- MOCK DATA SCAN (fallback) ---
-      onAddAuditLog('Scan Run', 'Demo scan initiated (mock data - connect QuickBooks for live data)', 'info');
+      onAddAuditLog('Scan Run', 'Demo scan initiated (mock data - connect QuickBooks or Xero for live data)', 'info');
       setScanSource('mock');
 
       const interval = setInterval(() => {
@@ -636,11 +664,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             onClick={runScan}
             disabled={isScanning}
             className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white font-medium transition-all ${
-              isScanning ? 'bg-blue-400 cursor-wait' : user.isQuickBooksConnected ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
+              isScanning ? 'bg-blue-400 cursor-wait' : (user.isQuickBooksConnected || user.isXeroConnected) ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
             }`}
           >
             {isScanning ? <RotateCcw className="animate-spin" size={18} /> : <Play size={18} />}
-            <span>{isScanning ? 'Scanning...' : user.isQuickBooksConnected ? 'Scan Live QB' : 'Run Demo Scan'}</span>
+            <span>{isScanning ? 'Scanning...' : (user.isQuickBooksConnected || user.isXeroConnected) ? `Scan Live${user.isQuickBooksConnected && user.isXeroConnected ? ' (QB + Xero)' : user.isXeroConnected ? ' Xero' : ' QB'}` : 'Run Demo Scan'}</span>
           </button>
         </div>
       </div>
@@ -649,7 +677,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         <div className="w-full bg-slate-200 rounded-full h-2.5 mb-6">
           <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
           <p className="text-xs text-center mt-1 text-slate-500">
-            {scanSource === 'live' ? 'Fetching live data from QuickBooks...' : 'Analyzing transactions...'}
+            {scanSource === 'live' ? `Fetching live data from ${liveSources.join(' + ')}...` : 'Analyzing transactions...'}
           </p>
         </div>
       )}
@@ -675,7 +703,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                     <span>Found {duplicates.length} potential duplicate groups.</span>
                     {scanSource === 'live' && (
                         <span className="ml-2 inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                            <Wifi size={10} className="mr-1"/> Live QB Data
+                            <Wifi size={10} className="mr-1"/> Live Data ({liveSources.join(' + ')})
                         </span>
                     )}
                     {scanSource === 'mock' && (
@@ -832,8 +860,8 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             <h3 className="text-lg font-medium text-slate-900">All Clean!</h3>
             <p className="text-slate-500">
               {scanSource === 'live'
-                ? 'No duplicate transactions found in your QuickBooks data.'
-                : 'No duplicate transactions found. Connect QuickBooks for live data.'}
+                ? `No duplicate transactions found in your ${liveSources.join(' + ')} data.`
+                : 'No duplicate transactions found. Connect QuickBooks or Xero for live data.'}
             </p>
             <button onClick={runScan} className="mt-4 text-blue-600 hover:underline">Run check again</button>
             

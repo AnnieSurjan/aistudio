@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
+  const [isConnectingXero, setIsConnectingXero] = useState(false);
   
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -65,19 +66,32 @@ const App: React.FC = () => {
     
     // Handle successful redirect from QuickBooks OAuth
     if (status === 'success') {
-        // In a full production app, you would fetch the company info from your backend here.
-        // For now, we assume if the backend redirected with success, we are connected to the Sandbox.
-        setUser(prev => ({ 
-            ...prev, 
+        setUser(prev => ({
+            ...prev,
             isQuickBooksConnected: true,
-            companyName: 'QuickBooks Sandbox' 
+            companyName: 'QuickBooks Sandbox'
         }));
-        
-        setIsAuthenticated(true); 
-        setCurrentView('app');    
+
+        setIsAuthenticated(true);
+        setCurrentView('app');
         handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
-        
+
         // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Handle successful redirect from Xero OAuth
+    if (status === 'xero_success') {
+        setUser(prev => ({
+            ...prev,
+            isXeroConnected: true,
+            xeroOrgName: 'Xero Organisation'
+        }));
+
+        setIsAuthenticated(true);
+        setCurrentView('app');
+        handleAddAuditLog('Connection', 'Xero organisation connected successfully', 'success');
+
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -141,6 +155,37 @@ const App: React.FC = () => {
           console.error("Connection failed:", error);
           alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
           setIsConnectingQB(false);
+      }
+  };
+
+  const handleConnectXero = async () => {
+      setIsConnectingXero(true);
+
+      const currentFrontendUrl = window.location.origin;
+
+      try {
+        console.log(`Attempting to connect Xero via backend: ${PRODUCTION_BACKEND_URL}`);
+
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!response.ok) {
+             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            throw new Error("Invalid response from backend: No redirect URL found.");
+        }
+
+      } catch (error) {
+          console.error("Xero connection failed:", error);
+          alert("Could not connect to the backend server for Xero. Please ensure your backend is running and accessible.");
+          setIsConnectingXero(false);
       }
   };
 
@@ -218,11 +263,13 @@ const App: React.FC = () => {
         onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
-            <Dashboard 
-                scanHistory={MOCK_SCAN_HISTORY} 
+            <Dashboard
+                scanHistory={MOCK_SCAN_HISTORY}
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 isConnectingQB={isConnectingQB}
+                onConnectXero={handleConnectXero}
+                isConnectingXero={isConnectingXero}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
@@ -300,10 +347,12 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-            <UserProfile 
-                user={user} 
+            <UserProfile
+                user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 isConnectingQB={isConnectingQB}
+                onConnectXero={handleConnectXero}
+                isConnectingXero={isConnectingXero}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {
                        handleUpgradeClick('Professional', '49');

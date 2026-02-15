@@ -52,9 +52,11 @@ app.use((req, res, next) => {
 
 // --- Routes ---
 const authRouter = require('./routes/auth');
+const xeroAuthRouter = require('./routes/xero-auth');
 const registrationRouter = require('./routes/registration');
 const companiesRouter = require('./routes/companies');
 const quickbooksRouter = require('./routes/quickbooks');
+const xeroRouter = require('./routes/xero');
 const notificationsRouter = require('./routes/notifications');
 const insightsRouter = require('./routes/insights');
 const scheduleRouter = require('./routes/schedule');
@@ -63,9 +65,11 @@ const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
 
 app.use('/auth', authRouter);
+app.use('/auth', xeroAuthRouter);
 app.use('/auth', registrationRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/quickbooks', quickbooksRouter);
+app.use('/api/xero', xeroRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/schedule', scheduleRouter);
@@ -101,6 +105,7 @@ app.get('*', (req, res) => {
         health: '/health',
         companies: '/api/companies',
         quickbooks: '/api/quickbooks/transactions',
+        xero: '/api/xero/scan',
         notifications: '/api/notifications',
         insights: '/api/insights',
         schedule: '/api/schedule',

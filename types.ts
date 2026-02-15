@@ -53,6 +53,8 @@ export interface UserProfile {
   plan: 'Starter' | 'Professional' | 'Enterprise';
   companyName: string;
   isQuickBooksConnected?: boolean;
+  isXeroConnected?: boolean;
+  xeroOrgName?: string;
 }
 
 export interface AppNotification {
