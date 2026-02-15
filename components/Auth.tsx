@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Mail, User, ShieldCheck, Building, ArrowLeft, Send, Loader2, CheckSquare, AlertCircle } from 'lucide-react';
 import Logo from './Logo';
 
-// Backend URLs - same order as App.tsx
+// Backend URLs - try same origin first (works on any domain), then fallbacks
 const BACKEND_URLS = [
-  'http://localhost:3001',
-  'https://dupdetect-frontend.onrender.com',
   window.location.origin,
+  'http://localhost:3001',
 ];
 
 interface AuthProps {

@@ -15,9 +15,8 @@ import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-reac
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// This is the target URL for your backend API.
-// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
-const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
+// Backend API URL - uses same origin since frontend and backend are served together
+const PRODUCTION_BACKEND_URL = window.location.origin;
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
