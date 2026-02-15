@@ -30,7 +30,7 @@ const Logo: React.FC<LogoProps> = ({ variant = 'dark', className = '' }) => {
           <span className="text-blue-600">Detect</span>
         </h1>
         <p className={`text-[10px] font-bold tracking-widest uppercase ${isLight ? 'text-slate-400' : 'text-slate-500'} mt-0.5`}>
-          QuickBooks Security
+          Accounting Security
         </p>
       </div>
     </div>
