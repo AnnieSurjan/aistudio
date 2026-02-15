@@ -45,7 +45,8 @@ const App: React.FC = () => {
     role: UserRole.MANAGER, 
     plan: 'Starter', // Default to starter
     companyName: '', // Empty by default, will be populated upon connection
-    isQuickBooksConnected: false
+    isQuickBooksConnected: false,
+    isXeroConnected: false
   });
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
@@ -96,27 +97,38 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = (userData?: { name: string; email: string; companyName: string }) => {
-    if (userData) {
-      setUser(prev => ({
-        ...prev,
-        name: userData.name,
-        email: userData.email,
-        companyName: userData.companyName || prev.companyName,
-      }));
-    }
+  const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('app');
     // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: userData?.name || user.name,
+          user: 'Alex Accountant', // Mock
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
     };
     setAuditLogs(prev => [log, ...prev]);
+  };
+  
+  const handleStartDemo = () => {
+      // Setup a Demo User state
+      setUser({
+          name: 'Demo User',
+          email: 'demo@dupdetect.com',
+          role: UserRole.ADMIN,
+          plan: 'Professional',
+          companyName: 'Demo Corp Ltd.',
+          isQuickBooksConnected: true,
+          isXeroConnected: true
+      });
+      setIsAuthenticated(true);
+      setCurrentView('app');
+      setActiveTab('scan'); // Go straight to the action
+      
+      handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
+      alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
   };
 
   const handleLogout = () => {
@@ -231,6 +243,7 @@ const App: React.FC = () => {
             onGetStarted={() => setCurrentView('auth')} 
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
+            onStartDemo={handleStartDemo}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway 
@@ -267,8 +280,8 @@ const App: React.FC = () => {
                 scanHistory={MOCK_SCAN_HISTORY}
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
-                isConnectingQB={isConnectingQB}
                 onConnectXero={handleConnectXero}
+                isConnectingQB={isConnectingQB}
                 isConnectingXero={isConnectingXero}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
@@ -350,8 +363,8 @@ const App: React.FC = () => {
             <UserProfile
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
-                isConnectingQB={isConnectingQB}
                 onConnectXero={handleConnectXero}
+                isConnectingQB={isConnectingQB}
                 isConnectingXero={isConnectingXero}
                 onManagePlan={() => {
                    if (user.plan === 'Starter') {

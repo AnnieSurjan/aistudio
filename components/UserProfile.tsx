@@ -6,7 +6,6 @@ import LegalModal from './LegalModal';
 interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
-  onDisconnectQuickBooks?: () => void;
   isConnectingQB?: boolean;
   onConnectXero?: () => void;
   onDisconnectXero?: () => void;
@@ -94,10 +93,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                 </div>
 
                 {user.isQuickBooksConnected ? (
-                    <button
-                        onClick={onDisconnectQuickBooks}
-                        className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm"
-                    >
+                    <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (

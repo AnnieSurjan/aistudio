@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Wifi, WifiOff } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Wifi, WifiOff } from 'lucide-react';
 
 const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
 
@@ -16,6 +16,9 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [progress, setProgress] = useState(0);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<DuplicateGroup | null>(null);
+  
+  // Scanning Visuals
+  const [scanLog, setScanLog] = useState<string[]>([]);
   
   // Undo System State
   const [history, setHistory] = useState<DuplicateGroup[]>([]); 
@@ -70,6 +73,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setProgress(0);
     setDuplicates([]);
     setHistory([]);
+    setScanLog(['Initializing AI engine...']);
     setShowUndoToast(false);
     setScanError(null);
     setLiveSources([]);
@@ -85,6 +89,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       if (isXeroConnected) sources.push('Xero');
       setLiveSources(sources);
 
+      setScanLog(prev => [...prev, `Fetching recent transactions from ${sources.join(' + ')}...`]);
       onAddAuditLog('Scan Run', `Live scan initiated from: ${sources.join(' + ')}`, 'info');
       setScanSource('live');
       setProgress(10);
@@ -121,6 +126,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         }
 
         setProgress(20);
+        setScanLog(prev => [...prev, '> Connecting to API...']);
         const results = await Promise.all(fetchPromises);
         setProgress(60);
 
@@ -130,12 +136,15 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         for (const result of results) {
           allTransactions = [...allTransactions, ...result.transactions];
           sourceNames.push(`${result.companyName} (${result.transactions.length})`);
+          setScanLog(prev => [...prev, `> ${result.source}: ${result.transactions.length} transactions loaded`]);
         }
 
         console.log(`[Scan] Fetched ${allTransactions.length} total transactions from: ${sourceNames.join(', ')}`);
 
         setProgress(85);
+        setScanLog(prev => [...prev, '> Running duplicate detection algorithm...']);
         const detected = detectDuplicates(allTransactions);
+        setScanLog(prev => [...prev, `> Analysis complete. ${detected.length} duplicate groups found.`]);
         setProgress(100);
         setIsScanning(false);
         setDuplicates(detected);
@@ -148,6 +157,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         }
       } catch (error) {
         console.error('[Scan] API error:', error);
+        setScanLog(prev => [...prev, `> ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`]);
         setIsScanning(false);
         setProgress(0);
         setScanError(error instanceof Error ? error.message : 'Failed to fetch transaction data');
@@ -155,12 +165,15 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       }
     } else {
       // --- MOCK DATA SCAN (fallback) ---
+      setScanLog(prev => [...prev, 'Fetching recent transactions from QuickBooks...', 'Fetching recent transactions from Xero...']);
       onAddAuditLog('Scan Run', 'Demo scan initiated (mock data - connect QuickBooks or Xero for live data)', 'info');
       setScanSource('mock');
 
+      let step = 0;
       const interval = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 100) {
+          const next = prev + 5;
+          if (next >= 100) {
             clearInterval(interval);
             setIsScanning(false);
             const detected = detectDuplicates(MOCK_TRANSACTIONS);
@@ -172,9 +185,22 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             }
             return 100;
           }
-          return prev + 10;
+          if (step % 4 === 0) {
+               const logs = [
+                   `Analyzing Invoice #${1000 + step}... OK`,
+                   `Comparing Vendor "Acme Corp" vs "Acme Inc"...`,
+                   `Checking Invoice #${1000 + step + 1}... Potential Match Found`,
+                   `Verifying currency consistency (USD/EUR)...`,
+                   `Cross-referencing Purchase Orders...`,
+                   `Applying exclusion rules...`
+               ];
+               const randomLog = logs[Math.floor(Math.random() * logs.length)];
+               setScanLog(prev => [...prev.slice(-4), `> ${randomLog}`]);
+          }
+          step++;
+          return next;
         });
-      }, 200);
+      }, 150);
     }
   };
 
@@ -229,7 +255,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `dupdetect_export_${new Date().toISOString().slice(0,10)}.csv`;
+    link.download = `dup-detect_export_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -247,7 +273,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         const html = `
             <html>
             <head>
-                <title>Duplicate Report - DupDetect</title>
+                <title>Duplicate Report - Dup-Detect</title>
                 <style>
                     body { font-family: sans-serif; padding: 20px; }
                     h1 { color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
@@ -660,7 +686,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
              )}
           </div>
 
-          <button
+          <button 
             onClick={runScan}
             disabled={isScanning}
             className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white font-medium transition-all ${
@@ -674,30 +700,34 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       </div>
 
       {isScanning && (
-        <div className="w-full bg-slate-200 rounded-full h-2.5 mb-6">
-          <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-          <p className="text-xs text-center mt-1 text-slate-500">
-            {scanSource === 'live' ? `Fetching live data from ${liveSources.join(' + ')}...` : 'Analyzing transactions...'}
-          </p>
-        </div>
-      )}
+        <div className="w-full bg-slate-900 rounded-xl p-4 shadow-xl border border-slate-700 mb-6 overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center space-x-2 text-blue-400">
+                    <Terminal size={18} />
+                    <span className="font-mono text-sm font-bold">
+                      {scanSource === 'live' ? `LIVE SCAN — ${liveSources.join(' + ')}` : 'LIVE SCAN TERMINAL'}
+                    </span>
+                </div>
+                <div className="text-slate-400 text-xs font-mono">{progress}% Complete</div>
+            </div>
 
-      {scanError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start">
-          <AlertCircle className="text-red-500 mr-3 mt-0.5 shrink-0" size={20} />
-          <div>
-            <p className="text-red-800 font-medium text-sm">Scan Failed</p>
-            <p className="text-red-600 text-sm mt-1">{scanError}</p>
-          </div>
-          <button onClick={() => setScanError(null)} className="ml-auto text-red-400 hover:text-red-600">
-            <X size={16} />
-          </button>
+            {/* Progress Bar in Terminal */}
+            <div className="w-full bg-slate-800 rounded-full h-1.5 mb-4">
+                <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
+            </div>
+
+            {/* Terminal Log Output */}
+            <div className="h-32 overflow-y-auto font-mono text-xs text-slate-300 space-y-1">
+                {scanLog.map((log, i) => (
+                    <div key={i} className="animate-in fade-in slide-in-from-left-2">{log}</div>
+                ))}
+            </div>
         </div>
       )}
 
       {duplicates.length > 0 && (
         <>
-            <div className="flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-100 mb-4">
+            <div className="flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-100 mb-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center text-yellow-800">
                     <AlertCircle className="mr-2" size={20}/>
                     <span>Found {duplicates.length} potential duplicate groups.</span>
@@ -877,7 +907,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
       {/* Side-by-Side Comparison Modal */}
       {showReviewModal && selectedGroup && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95 duration-200">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col h-[90vh]">
             
             {/* Modal Header */}
