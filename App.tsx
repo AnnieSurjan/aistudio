@@ -82,22 +82,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = (userData?: { name: string; email: string; companyName: string }) => {
-    if (userData) {
-      setUser(prev => ({
-        ...prev,
-        name: userData.name,
-        email: userData.email,
-        companyName: userData.companyName || prev.companyName,
-      }));
-    }
+  const handleLogin = () => {
     setIsAuthenticated(true);
     setCurrentView('app');
     // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: userData?.name || user.name,
+          user: 'Alex Accountant', // Mock
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
