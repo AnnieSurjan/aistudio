@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle, TrendingUp, Shield, Clock, Database, PlayCircle, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle, TrendingUp, Shield, Clock, Database, PlayCircle, Star, Zap } from 'lucide-react';
 import Logo from './Logo';
 import LegalModal from './LegalModal';
 import HelpCenter from './HelpCenter';
@@ -8,9 +8,10 @@ interface LandingPageProps {
   onGetStarted: () => void;
   onLogin: () => void;
   onUpgrade: (plan: string, price: string) => void;
+  onStartDemo: () => void; // New prop for demo mode
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade, onStartDemo }) => {
   const [showLegal, setShowLegal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
@@ -67,7 +68,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
           </h1>
           
           <p className="max-w-2xl text-xl text-slate-400 mb-10 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-            Dup-Detect connects to QuickBooks Online and uses advanced AI to identify, flag, and resolve duplicate transactions that human eyes miss.
+            Dup-Detect connects to <strong>QuickBooks Online & Xero</strong> to identify, flag, and resolve duplicate transactions that human eyes miss using advanced AI.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -78,9 +79,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
               <span>Start Free Trial</span>
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
-            <button className="flex items-center justify-center space-x-2 bg-slate-800/50 text-white border border-slate-700 px-8 py-4 rounded-full text-lg font-bold hover:bg-slate-800 transition-all backdrop-blur-sm">
-              <PlayCircle size={20} className="text-blue-400" />
-              <span>Watch Demo</span>
+            <button 
+              onClick={onStartDemo}
+              className="flex items-center justify-center space-x-2 bg-slate-800/50 text-white border border-slate-700 px-8 py-4 rounded-full text-lg font-bold hover:bg-slate-800 transition-all backdrop-blur-sm hover:border-blue-500/50"
+            >
+              <Zap size={20} className="text-yellow-400 fill-current" />
+              <span>Try Live Demo</span>
             </button>
           </div>
         </div>
@@ -118,7 +122,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                     { icon: Shield, title: "Bank-Level Security", desc: "Your financial data is encrypted and we never modify without your explicit confirmation." },
                     { icon: TrendingUp, title: "AI-Powered Detection", desc: "Finds duplicates that exact-match logic misses, like 'Home Depot' vs 'The Home Depot'." },
                     { icon: Clock, title: "Automated Schedules", desc: "Set scans to run hourly, daily, or weekly. Receive PDF reports directly to your inbox." },
-                    { icon: Database, title: "Deep Integration", desc: "Seamlessly connects with QuickBooks Online via official APIs for real-time syncing." },
+                    { icon: Database, title: "Universal Integration", desc: "Seamlessly connects with QuickBooks Online and Xero via official APIs for real-time syncing." },
                     { icon: CheckCircle, title: "One-Click Resolve", desc: "Merge or delete duplicate transactions safely with automatic undo backups." },
                     { icon: ArrowRight, title: "Multi-User Roles", desc: "Grant view-only access to auditors and full control to senior accountants." }
                 ].map((feature, i) => (
@@ -152,7 +156,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                     </div>
                     <p className="text-slate-500 text-sm mt-2">For micro-businesses & freelancers.</p>
                     <ul className="mt-6 space-y-4 text-sm flex-1">
-                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> 1 QuickBooks Account</li>
+                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> 1 Accounting File</li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> <b>AI Detection Engine</b></li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> Manual Scans</li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> Basic Email Support</li>
@@ -178,7 +182,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                     </div>
                     <p className="text-slate-400 text-sm mt-2">For growing SMEs & firms.</p>
                     <ul className="mt-6 space-y-4 text-sm flex-1">
-                        <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2 shrink-0"/> Up to 5 QuickBooks Accounts</li>
+                        <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2 shrink-0"/> Up to 5 Accounting Files</li>
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2 shrink-0"/> <b>Advanced AI Detection</b></li>
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2 shrink-0"/> Automated Daily Scans</li>
                         <li className="flex items-center text-slate-300"><CheckCircle size={16} className="text-blue-400 mr-2 shrink-0"/> <b>Audit Logs & Activity Tracking</b></li>
@@ -204,7 +208,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                     </div>
                     <p className="text-slate-500 text-sm mt-2">For large firms & auditors.</p>
                     <ul className="mt-6 space-y-4 text-sm flex-1">
-                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> Unlimited QuickBooks Accounts</li>
+                        <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> Unlimited Accounting Files</li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> <b>Custom AI Detection Rules</b></li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> <b>Real-time & Scheduled Scans</b></li>
                         <li className="flex items-center text-slate-600"><CheckCircle size={16} className="text-green-500 mr-2 shrink-0"/> Full Audit Trails & Compliance</li>
