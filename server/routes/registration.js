@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
 const { sendVerificationEmail } = require('../lib/resend');
+const { generateToken } = require('../middleware/auth');
 
 // In-memory verification code store
 // Key: email, Value: { code, hashedPassword, name, companyName, createdAt }
@@ -137,16 +138,20 @@ router.post('/verify-email', async (req, res) => {
     // Clean up pending verification
     pendingVerifications.delete(email.toLowerCase());
 
+    const verifiedUser = {
+      id: userId,
+      email: email.toLowerCase(),
+      name: pending.name,
+      companyName: pending.companyName,
+    };
+    const token = generateToken(verifiedUser);
+
     console.log(`[Registration] User verified: ${email}, ID: ${userId}`);
 
     res.json({
       message: 'Email verified successfully',
-      user: {
-        id: userId,
-        email: email.toLowerCase(),
-        name: pending.name,
-        companyName: pending.companyName,
-      },
+      user: verifiedUser,
+      token,
     });
   } catch (error) {
     console.error('[Registration] Verify error:', error);
@@ -245,8 +250,10 @@ router.post('/login', async (req, res) => {
       return res.status(500).json({ error: 'Login service unavailable. Please try again later.' });
     }
 
+    const token = generateToken(user);
+
     console.log(`[Login] Successful login: ${email}`);
-    res.json({ message: 'Login successful', user });
+    res.json({ message: 'Login successful', user, token });
   } catch (error) {
     console.error('[Login] Error:', error);
     res.status(500).json({ error: 'Login failed' });

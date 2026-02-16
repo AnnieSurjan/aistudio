@@ -94,7 +94,7 @@ async function fetchXeroTransactions(accessToken, tenantId) {
 // GET /api/xero/scan - Fetch and transform Xero transactions for scanning
 router.get('/scan', async (req, res) => {
   try {
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     console.log('[Xero Scan] Starting scan for user:', userId);
 

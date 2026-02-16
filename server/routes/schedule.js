@@ -6,7 +6,7 @@ const { getAdminClient } = require('../lib/supabase');
 router.get('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from('scan_schedules')
@@ -28,7 +28,6 @@ router.post('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
     const {
-      userId = 'user-1',
       frequency,
       dayOfWeek,
       dayOfMonth,
@@ -36,6 +35,7 @@ router.post('/', async (req, res) => {
       timezone,
       isActive,
     } = req.body;
+    const userId = req.user.id;
 
     const nextRunAt = calculateNextRun(frequency, dayOfWeek, dayOfMonth, timeOfDay, timezone);
 
@@ -80,7 +80,6 @@ router.patch('/', async (req, res) => {
     const supabase = getAdminClient();
     const {
       scheduleId,
-      userId = 'user-1',
       frequency,
       dayOfWeek,
       dayOfMonth,
@@ -88,6 +87,8 @@ router.patch('/', async (req, res) => {
       timezone,
       isActive,
     } = req.body;
+
+    const userId = req.user.id;
 
     if (!scheduleId) {
       return res.status(400).json({ error: 'Schedule ID required' });
@@ -126,7 +127,7 @@ router.delete('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
     const scheduleId = req.query.scheduleId;
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     if (!scheduleId) {
       return res.status(400).json({ error: 'Schedule ID required' });

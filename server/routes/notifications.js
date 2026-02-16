@@ -6,7 +6,7 @@ const { getAdminClient } = require('../lib/supabase');
 router.get('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
     const unreadOnly = req.query.unreadOnly === 'true';
 
     let query = supabase
@@ -37,7 +37,8 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const { userId = 'user-1', type, title, message, metadata } = req.body;
+    const { type, title, message, metadata } = req.body;
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from('notifications')
@@ -66,7 +67,8 @@ router.post('/', async (req, res) => {
 router.post('/mark-read', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const { notificationId, userId = 'user-1' } = req.body;
+    const { notificationId } = req.body;
+    const userId = req.user.id;
 
     if (!notificationId) {
       return res.status(400).json({ error: 'Notification ID required' });
@@ -96,7 +98,7 @@ router.post('/mark-read', async (req, res) => {
 router.post('/mark-all-read', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const { userId = 'user-1' } = req.body;
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from('notifications')

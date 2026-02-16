@@ -6,7 +6,7 @@ const { getAdminClient } = require('../lib/supabase');
 router.get('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from('quickbooks_connections')
@@ -29,13 +29,13 @@ router.post('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
     const {
-      userId = 'user-1',
       companyId,
       companyName,
       realmId,
       accessToken,
       refreshToken,
     } = req.body;
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from('quickbooks_connections')
@@ -77,7 +77,8 @@ router.post('/', async (req, res) => {
 router.post('/set-active', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const { userId = 'user-1', companyId } = req.body;
+    const { companyId } = req.body;
+    const userId = req.user.id;
 
     if (!companyId) {
       return res.status(400).json({ error: 'Company ID required' });

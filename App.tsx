@@ -131,6 +131,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('auth_token');
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
@@ -145,9 +146,13 @@ const App: React.FC = () => {
         console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
         
         // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
         });
         
         if (!response.ok) {
@@ -177,9 +182,13 @@ const App: React.FC = () => {
       try {
         console.log(`Attempting to connect Xero via backend: ${PRODUCTION_BACKEND_URL}`);
 
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            },
         });
 
         if (!response.ok) {

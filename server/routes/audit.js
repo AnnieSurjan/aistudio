@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
-const { requireAuth } = require('../middleware/auth');
 
-// POST /api/audit/log - Audit log letrehozasa (auth szukseges)
-router.post('/log', requireAuth, async (req, res) => {
+// POST /api/audit/log - Audit log letrehozasa
+router.post('/log', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { action, resource_type, resource_id, description, changes, status, error_message } =
       req.body;
 
@@ -19,7 +19,7 @@ router.post('/log', requireAuth, async (req, res) => {
       req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.ip || 'unknown';
     const user_agent = req.headers['user-agent'] || undefined;
 
-    const { data, error } = await req.supabase
+    const { data, error } = await supabase
       .from('audit_logs')
       .insert({
         user_id: req.user.id,
@@ -48,16 +48,17 @@ router.post('/log', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/audit/activity - Tevekenyseg tortenelem (auth szukseges)
-router.get('/activity', requireAuth, async (req, res) => {
+// GET /api/audit/activity - Tevekenyseg tortenelem
+router.get('/activity', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
     const actionType = req.query.action_type;
     const startDate = req.query.start_date;
     const endDate = req.query.end_date;
 
-    let query = req.supabase
+    let query = supabase
       .from('activity_history')
       .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
@@ -81,17 +82,17 @@ router.get('/activity', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/audit/export - Export generalas (auth szukseges)
-router.post('/export', requireAuth, async (req, res) => {
+// POST /api/audit/export - Export generalas
+router.post('/export', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { type, scope, startDate, endDate, scanId } = req.body;
 
     if (!type || !scope) {
       return res.status(400).json({ error: 'Missing required fields: type, scope' });
     }
 
-    // Audit log adatok lekerese
-    let query = req.supabase
+    let query = supabase
       .from('audit_log')
       .select('*')
       .eq('user_id', req.user.id)
@@ -137,7 +138,7 @@ router.post('/export', requireAuth, async (req, res) => {
     }
 
     // Export tortenelem logolasa
-    await req.supabase.from('export_history').insert({
+    await supabase.from('export_history').insert({
       user_id: req.user.id,
       export_type: type,
       scope,
@@ -154,14 +155,15 @@ router.post('/export', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/audit/exports - Export tortenelem lekerese (auth szukseges)
-router.get('/exports', requireAuth, async (req, res) => {
+// GET /api/audit/exports - Export tortenelem lekerese
+router.get('/exports', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const limit = parseInt(req.query.limit || '20');
     const offset = parseInt(req.query.offset || '0');
     const status = req.query.status;
 
-    let query = req.supabase
+    let query = supabase
       .from('export_history')
       .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
@@ -183,16 +185,17 @@ router.get('/exports', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/audit/exports - Uj export rekord (auth szukseges)
-router.post('/exports', requireAuth, async (req, res) => {
+// POST /api/audit/exports - Uj export rekord
+router.post('/exports', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { export_type, scope, filter_params } = req.body;
 
     if (!export_type || !scope) {
       return res.status(400).json({ error: 'Missing required fields: export_type, scope' });
     }
 
-    const { data, error } = await req.supabase
+    const { data, error } = await supabase
       .from('export_history')
       .insert({
         user_id: req.user.id,
@@ -216,14 +219,15 @@ router.post('/exports', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/audit/settings - Beallitasok audit tortenelem (auth szukseges)
-router.get('/settings', requireAuth, async (req, res) => {
+// GET /api/audit/settings - Beallitasok audit tortenelem
+router.get('/settings', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
     const settingKey = req.query.setting_key;
 
-    let query = req.supabase
+    let query = supabase
       .from('settings_audit')
       .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
@@ -245,16 +249,17 @@ router.get('/settings', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/audit/settings - Beallitasok valtozas logolasa (auth szukseges)
-router.post('/settings', requireAuth, async (req, res) => {
+// POST /api/audit/settings - Beallitasok valtozas logolasa
+router.post('/settings', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { setting_key, old_value, new_value, reason } = req.body;
 
     if (!setting_key || new_value === undefined) {
       return res.status(400).json({ error: 'Missing required fields: setting_key, new_value' });
     }
 
-    const { data, error } = await req.supabase
+    const { data, error } = await supabase
       .from('settings_audit')
       .insert({
         user_id: req.user.id,

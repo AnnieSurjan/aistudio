@@ -55,6 +55,7 @@ app.use((req, res, next) => {
 });
 
 // --- Routes ---
+const { requireAuth } = require('./middleware/auth');
 const authRouter = require('./routes/auth');
 const xeroAuthRouter = require('./routes/xero-auth');
 const registrationRouter = require('./routes/registration');
@@ -68,18 +69,23 @@ const auditRouter = require('./routes/audit');
 const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
 
+// Public routes (no auth required)
 app.use('/auth', authRouter);
 app.use('/auth', xeroAuthRouter);
 app.use('/auth', registrationRouter);
-app.use('/api/companies', companiesRouter);
-app.use('/api/quickbooks', quickbooksRouter);
-app.use('/api/xero', xeroRouter);
-app.use('/api/notifications', notificationsRouter);
-app.use('/api/insights', insightsRouter);
-app.use('/api/schedule', scheduleRouter);
-app.use('/api/audit', auditRouter);
-app.use('/api/undo', undoRouter);
+
+// Cron has its own auth (CRON_SECRET)
 app.use('/api/cron', cronRouter);
+
+// Protected API routes (JWT auth required)
+app.use('/api/companies', requireAuth, companiesRouter);
+app.use('/api/quickbooks', requireAuth, quickbooksRouter);
+app.use('/api/xero', requireAuth, xeroRouter);
+app.use('/api/notifications', requireAuth, notificationsRouter);
+app.use('/api/insights', requireAuth, insightsRouter);
+app.use('/api/schedule', requireAuth, scheduleRouter);
+app.use('/api/audit', requireAuth, auditRouter);
+app.use('/api/undo', requireAuth, undoRouter);
 
 // --- Health check endpoint (Render.com hasznalja) ---
 app.get('/health', (req, res) => {
