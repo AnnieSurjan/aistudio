@@ -55,6 +55,9 @@ export interface UserProfile {
   isQuickBooksConnected?: boolean;
   isXeroConnected?: boolean;
   xeroOrgName?: string;
+  paddleCustomerId?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'trialing' | 'paused' | 'past_due' | 'canceled';
 }
 
 export interface AppNotification {

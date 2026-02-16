@@ -109,6 +109,8 @@ const App: React.FC = () => {
           type: 'info'
     };
     setAuditLogs(prev => [log, ...prev]);
+    // Fetch subscription from backend after login
+    fetchSubscriptionStatus();
   };
   
   const handleStartDemo = () => {
@@ -230,17 +232,36 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          // Update user plan
-          setUser(prev => ({ 
-              ...prev, 
-              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' 
+          // Update user plan locally (webhook will also update it in the database)
+          setUser(prev => ({
+              ...prev,
+              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise'
           }));
-          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
+          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name} via Paddle`, 'success');
           setShowPaymentModal(false);
-          // If we were on landing page, move to app or show success
+          // If we were on landing page, move to auth/signup
           if (currentView === 'landing') {
-              setCurrentView('auth'); // Or direct to app if already logged in logic existed
+              setCurrentView('auth');
           }
+      }
+  };
+
+  // Fetch subscription status from backend on login
+  const fetchSubscriptionStatus = async () => {
+      try {
+          const token = localStorage.getItem('auth_token');
+          if (!token) return;
+          const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/paddle/subscription`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (response.ok) {
+              const data = await response.json();
+              if (data.plan && data.plan !== 'Starter') {
+                  setUser(prev => ({ ...prev, plan: data.plan }));
+              }
+          }
+      } catch (err) {
+          console.log('[Subscription] Could not fetch subscription status:', err);
       }
   };
 
@@ -254,11 +275,12 @@ const App: React.FC = () => {
             onStartDemo={handleStartDemo}
         />
         {showPaymentModal && selectedPlan && (
-            <PaymentGateway 
+            <PaymentGateway
                 planName={selectedPlan.name}
                 price={selectedPlan.price}
                 onClose={() => setShowPaymentModal(false)}
                 onSuccess={handlePaymentSuccess}
+                userEmail={user.email}
             />
         )}
       </>

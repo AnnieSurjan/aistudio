@@ -8,6 +8,7 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@paddle/paddle-node-sdk": "^3.6.0",
     "@supabase/supabase-js": "^2.94.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
