@@ -122,7 +122,7 @@ async function fetchQBTransactions(accessToken, realmId) {
 // This is the main endpoint the frontend uses for real QB data
 router.get('/scan', async (req, res) => {
   try {
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     console.log('[QB Scan] Starting scan for user:', userId);
 

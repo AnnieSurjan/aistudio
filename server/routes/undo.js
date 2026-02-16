@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { getAdminClient } = require('../lib/supabase');
 
-// POST /api/undo/resolve - Duplikatum feloldas visszavonasa (auth szukseges)
-router.post('/resolve', requireAuth, async (req, res) => {
+// POST /api/undo/resolve - Duplikatum feloldas visszavonasa
+router.post('/resolve', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { duplicate_id, reason } = req.body;
 
     if (!duplicate_id) {
@@ -12,7 +13,7 @@ router.post('/resolve', requireAuth, async (req, res) => {
     }
 
     // Duplikatum tranzakcio lekerese
-    const { data: duplicate, error: dupError } = await req.supabase
+    const { data: duplicate, error: dupError } = await supabase
       .from('duplicate_transactions')
       .select('*')
       .eq('id', duplicate_id)
@@ -28,7 +29,7 @@ router.post('/resolve', requireAuth, async (req, res) => {
     }
 
     // Undo tortenelem rekord
-    const { data: undoRecord, error: undoError } = await req.supabase
+    const { data: undoRecord, error: undoError } = await supabase
       .from('undo_history')
       .insert({
         user_id: req.user.id,
@@ -48,7 +49,7 @@ router.post('/resolve', requireAuth, async (req, res) => {
     }
 
     // Duplikatum statusz visszaallitasa
-    const { error: updateError } = await req.supabase
+    const { error: updateError } = await supabase
       .from('duplicate_transactions')
       .update({ status: 'pending', reviewed_by: null, reviewed_at: null })
       .eq('id', duplicate_id);
@@ -59,7 +60,7 @@ router.post('/resolve', requireAuth, async (req, res) => {
     }
 
     // Utolso muvelet frissitese
-    await req.supabase
+    await supabase
       .from('user_last_action')
       .upsert({
         user_id: req.user.id,
@@ -71,11 +72,11 @@ router.post('/resolve', requireAuth, async (req, res) => {
       .eq('user_id', req.user.id);
 
     // Tevekenyseg logolasa
-    await req.supabase.from('activity_history').insert({
+    await supabase.from('activity_history').insert({
       user_id: req.user.id,
       action_type: 'duplicate_resolution_undo',
       actor_id: req.user.id,
-      actor_name: req.user.user_metadata?.name || req.user.email,
+      actor_name: req.user.name || req.user.email,
       target_id: duplicate_id,
       target_type: 'duplicate_transaction',
       summary: 'Undone duplicate resolution for transaction pair',
@@ -93,13 +94,14 @@ router.post('/resolve', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/undo/history - Undo tortenelem lekerese (auth szukseges)
-router.get('/history', requireAuth, async (req, res) => {
+// GET /api/undo/history - Undo tortenelem lekerese
+router.get('/history', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
 
-    const { data, error, count } = await req.supabase
+    const { data, error, count } = await supabase
       .from('undo_history')
       .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
@@ -118,9 +120,10 @@ router.get('/history', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/undo/batch - Tomeges undo (auth szukseges)
-router.post('/batch', requireAuth, async (req, res) => {
+// POST /api/undo/batch - Tomeges undo
+router.post('/batch', async (req, res) => {
   try {
+    const supabase = getAdminClient();
     const { duplicate_ids, reason } = req.body;
 
     if (!duplicate_ids || duplicate_ids.length === 0) {
@@ -128,7 +131,7 @@ router.post('/batch', requireAuth, async (req, res) => {
     }
 
     // Batch queue rekord
-    const { data: batchRecord, error: batchError } = await req.supabase
+    const { data: batchRecord, error: batchError } = await supabase
       .from('undo_batch_queue')
       .insert({
         user_id: req.user.id,
@@ -151,7 +154,7 @@ router.post('/batch', requireAuth, async (req, res) => {
 
     for (const duplicateId of duplicate_ids) {
       try {
-        const { data: duplicate } = await req.supabase
+        const { data: duplicate } = await supabase
           .from('duplicate_transactions')
           .select('*')
           .eq('id', duplicateId)
@@ -163,7 +166,7 @@ router.post('/batch', requireAuth, async (req, res) => {
           continue;
         }
 
-        const { data: undoRecord } = await req.supabase
+        const { data: undoRecord } = await supabase
           .from('undo_history')
           .insert({
             user_id: req.user.id,
@@ -178,7 +181,7 @@ router.post('/batch', requireAuth, async (req, res) => {
           .select()
           .single();
 
-        await req.supabase
+        await supabase
           .from('duplicate_transactions')
           .update({ status: 'pending', reviewed_by: null, reviewed_at: null })
           .eq('id', duplicateId);
@@ -192,7 +195,7 @@ router.post('/batch', requireAuth, async (req, res) => {
       }
     }
 
-    await req.supabase
+    await supabase
       .from('undo_batch_queue')
       .update({
         status: 'completed',
@@ -217,10 +220,11 @@ router.post('/batch', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/undo/last-action - Utolso muvelet lekerese (auth szukseges)
-router.get('/last-action', requireAuth, async (req, res) => {
+// GET /api/undo/last-action - Utolso muvelet lekerese
+router.get('/last-action', async (req, res) => {
   try {
-    const { data, error } = await req.supabase
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
       .from('user_last_action')
       .select('*')
       .eq('user_id', req.user.id)

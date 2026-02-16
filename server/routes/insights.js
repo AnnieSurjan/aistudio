@@ -6,7 +6,7 @@ const { getAdminClient } = require('../lib/supabase');
 router.get('/', async (req, res) => {
   try {
     const supabase = getAdminClient();
-    const userId = req.query.userId || 'user-1';
+    const userId = req.user.id;
 
     const { data: scans, error: scansError } = await supabase
       .from('scan_history')
