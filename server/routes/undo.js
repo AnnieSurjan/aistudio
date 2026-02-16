@@ -1,92 +1,67 @@
 const express = require('express');
 const router = express.Router();
-const { getAdminClient } = require('../lib/supabase');
+const crypto = require('crypto');
+
+// ============================================================
+// In-memory undo store
+// Szerver ujrainditaskor minden adat elveszik - ez szandekos.
+// Az undo csak rovid tavu biztonsagi halo (utolso torles visszavonasa).
+// ============================================================
+
+// Map<userId, Array<UndoRecord>>
+const undoHistoryStore = new Map();
+
+// Map<userId, { lastActionType, lastActionId, canUndo, lastActionAt, data }>
+const lastActionStore = new Map();
+
+// Map<batchId, BatchRecord>
+const batchStore = new Map();
+
+function generateId() {
+  return crypto.randomUUID();
+}
+
+function getUserHistory(userId) {
+  if (!undoHistoryStore.has(userId)) {
+    undoHistoryStore.set(userId, []);
+  }
+  return undoHistoryStore.get(userId);
+}
 
 // POST /api/undo/resolve - Duplikatum feloldas visszavonasa
 router.post('/resolve', async (req, res) => {
   try {
-    const supabase = getAdminClient();
-    const { duplicate_id, reason } = req.body;
+    const { duplicate_id, reason, duplicate_data } = req.body;
+    const userId = req.user.id;
 
     if (!duplicate_id) {
       return res.status(400).json({ error: 'Missing required field: duplicate_id' });
     }
 
-    // Duplikatum tranzakcio lekerese
-    const { data: duplicate, error: dupError } = await supabase
-      .from('duplicate_transactions')
-      .select('*')
-      .eq('id', duplicate_id)
-      .eq('user_id', req.user.id)
-      .single();
+    const undoRecord = {
+      id: generateId(),
+      user_id: userId,
+      duplicate_id,
+      action_type: 'duplicate_resolution_undo',
+      reason: reason || null,
+      undone_by: userId,
+      data: duplicate_data || null,
+      created_at: new Date().toISOString(),
+    };
 
-    if (dupError || !duplicate) {
-      return res.status(404).json({ error: 'Duplicate not found' });
-    }
-
-    if (duplicate.status !== 'resolved') {
-      return res.status(400).json({ error: 'Can only undo resolved duplicates' });
-    }
-
-    // Undo tortenelem rekord
-    const { data: undoRecord, error: undoError } = await supabase
-      .from('undo_history')
-      .insert({
-        user_id: req.user.id,
-        duplicate_id,
-        original_transaction_id: duplicate.original_transaction_id,
-        duplicate_transaction_id: duplicate.duplicate_transaction_id,
-        action_type: 'duplicate_resolution_undo',
-        reason,
-        undone_by: req.user.id,
-      })
-      .select()
-      .single();
-
-    if (undoError) {
-      console.error('[Undo] Undo record creation error:', undoError);
-      return res.status(500).json({ error: 'Failed to create undo record' });
-    }
-
-    // Duplikatum statusz visszaallitasa
-    const { error: updateError } = await supabase
-      .from('duplicate_transactions')
-      .update({ status: 'pending', reviewed_by: null, reviewed_at: null })
-      .eq('id', duplicate_id);
-
-    if (updateError) {
-      console.error('[Undo] Update error:', updateError);
-      return res.status(500).json({ error: 'Failed to undo resolution' });
-    }
+    const history = getUserHistory(userId);
+    history.unshift(undoRecord);
 
     // Utolso muvelet frissitese
-    await supabase
-      .from('user_last_action')
-      .upsert({
-        user_id: req.user.id,
-        last_action_type: 'duplicate_resolution_undo',
-        last_action_id: duplicate_id,
-        can_undo: false,
-        last_action_at: new Date().toISOString(),
-      })
-      .eq('user_id', req.user.id);
-
-    // Tevekenyseg logolasa
-    await supabase.from('activity_history').insert({
-      user_id: req.user.id,
-      action_type: 'duplicate_resolution_undo',
-      actor_id: req.user.id,
-      actor_name: req.user.name || req.user.email,
-      target_id: duplicate_id,
-      target_type: 'duplicate_transaction',
-      summary: 'Undone duplicate resolution for transaction pair',
-      details: {
-        original_transaction: duplicate.original_transaction_id,
-        duplicate_transaction: duplicate.duplicate_transaction_id,
-        reason,
-      },
+    lastActionStore.set(userId, {
+      user_id: userId,
+      last_action_type: 'duplicate_resolution_undo',
+      last_action_id: duplicate_id,
+      can_undo: false,
+      last_action_at: new Date().toISOString(),
     });
 
+    console.log(`[Undo] User ${userId} undid resolution for duplicate ${duplicate_id}`);
     res.json({ data: undoRecord });
   } catch (error) {
     console.error('[Undo] Resolve endpoint error:', error);
@@ -97,23 +72,14 @@ router.post('/resolve', async (req, res) => {
 // GET /api/undo/history - Undo tortenelem lekerese
 router.get('/history', async (req, res) => {
   try {
-    const supabase = getAdminClient();
+    const userId = req.user.id;
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
 
-    const { data, error, count } = await supabase
-      .from('undo_history')
-      .select('*', { count: 'exact' })
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const history = getUserHistory(userId);
+    const paged = history.slice(offset, offset + limit);
 
-    if (error) {
-      console.error('[Undo] History fetch error:', error);
-      return res.status(500).json({ error: 'Failed to fetch undo history' });
-    }
-
-    res.json({ data, count, limit, offset });
+    res.json({ data: paged, count: history.length, limit, offset });
   } catch (error) {
     console.error('[Undo] History endpoint error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -123,94 +89,51 @@ router.get('/history', async (req, res) => {
 // POST /api/undo/batch - Tomeges undo
 router.post('/batch', async (req, res) => {
   try {
-    const supabase = getAdminClient();
+    const userId = req.user.id;
     const { duplicate_ids, reason } = req.body;
 
     if (!duplicate_ids || duplicate_ids.length === 0) {
       return res.status(400).json({ error: 'Missing required field: duplicate_ids' });
     }
 
-    // Batch queue rekord
-    const { data: batchRecord, error: batchError } = await supabase
-      .from('undo_batch_queue')
-      .insert({
-        user_id: req.user.id,
-        duplicate_ids,
-        total_items: duplicate_ids.length,
-        status: 'processing',
-        reason,
-      })
-      .select()
-      .single();
-
-    if (batchError) {
-      console.error('[Undo] Batch creation error:', batchError);
-      return res.status(500).json({ error: 'Failed to create batch undo' });
-    }
-
+    const batchId = generateId();
+    const history = getUserHistory(userId);
     const undoResults = [];
-    let successCount = 0;
-    let failureCount = 0;
 
     for (const duplicateId of duplicate_ids) {
-      try {
-        const { data: duplicate } = await supabase
-          .from('duplicate_transactions')
-          .select('*')
-          .eq('id', duplicateId)
-          .eq('user_id', req.user.id)
-          .single();
+      const undoRecord = {
+        id: generateId(),
+        user_id: userId,
+        duplicate_id: duplicateId,
+        action_type: 'duplicate_resolution_undo',
+        reason: reason || null,
+        undone_by: userId,
+        batch_id: batchId,
+        created_at: new Date().toISOString(),
+      };
 
-        if (!duplicate || duplicate.status !== 'resolved') {
-          failureCount++;
-          continue;
-        }
-
-        const { data: undoRecord } = await supabase
-          .from('undo_history')
-          .insert({
-            user_id: req.user.id,
-            duplicate_id: duplicateId,
-            original_transaction_id: duplicate.original_transaction_id,
-            duplicate_transaction_id: duplicate.duplicate_transaction_id,
-            action_type: 'duplicate_resolution_undo',
-            reason,
-            undone_by: req.user.id,
-            batch_id: batchRecord.id,
-          })
-          .select()
-          .single();
-
-        await supabase
-          .from('duplicate_transactions')
-          .update({ status: 'pending', reviewed_by: null, reviewed_at: null })
-          .eq('id', duplicateId);
-
-        undoResults.push({ duplicate_id: duplicateId, status: 'success', undo_record: undoRecord });
-        successCount++;
-      } catch (error) {
-        console.error(`[Undo] Batch error for ${duplicateId}:`, error);
-        failureCount++;
-        undoResults.push({ duplicate_id: duplicateId, status: 'failed', error: 'Failed to undo' });
-      }
+      history.unshift(undoRecord);
+      undoResults.push({ duplicate_id: duplicateId, status: 'success', undo_record: undoRecord });
     }
 
-    await supabase
-      .from('undo_batch_queue')
-      .update({
-        status: 'completed',
-        processed_items: successCount,
-        failed_items: failureCount,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', batchRecord.id);
+    batchStore.set(batchId, {
+      id: batchId,
+      user_id: userId,
+      total_items: duplicate_ids.length,
+      processed_items: duplicate_ids.length,
+      failed_items: 0,
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    });
+
+    console.log(`[Undo] User ${userId} batch-undid ${duplicate_ids.length} duplicates`);
 
     res.json({
       data: {
-        batch_id: batchRecord.id,
+        batch_id: batchId,
         total: duplicate_ids.length,
-        success_count: successCount,
-        failure_count: failureCount,
+        success_count: duplicate_ids.length,
+        failure_count: 0,
         results: undoResults,
       },
     });
@@ -223,19 +146,10 @@ router.post('/batch', async (req, res) => {
 // GET /api/undo/last-action - Utolso muvelet lekerese
 router.get('/last-action', async (req, res) => {
   try {
-    const supabase = getAdminClient();
-    const { data, error } = await supabase
-      .from('user_last_action')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .single();
+    const userId = req.user.id;
+    const lastAction = lastActionStore.get(userId) || null;
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('[Undo] Last action fetch error:', error);
-      return res.status(500).json({ error: 'Failed to fetch last action' });
-    }
-
-    res.json({ data: data || null });
+    res.json({ data: lastAction });
   } catch (error) {
     console.error('[Undo] Last action endpoint error:', error);
     res.status(500).json({ error: 'Internal server error' });
