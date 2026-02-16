@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS scan_schedules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   quickbooks_connection_id UUID REFERENCES quickbooks_connections(id) ON DELETE SET NULL,
+  xero_connection_id UUID REFERENCES xero_connections(id) ON DELETE SET NULL,
   frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
   day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6),
   day_of_month INTEGER CHECK (day_of_month BETWEEN 1 AND 31),

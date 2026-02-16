@@ -270,3 +270,5 @@ router.post('/transactions', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.fetchQBTransactions = fetchQBTransactions;
+module.exports.getValidQBAccessToken = getValidAccessToken;
