@@ -71,6 +71,7 @@ const auditRouter = require('./routes/audit');
 const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
 const paddleRouter = require('./routes/paddle');
+const chatRouter = require('./routes/chat');
 
 // Public routes (no auth required)
 app.use('/auth', authRouter);
@@ -92,6 +93,7 @@ app.use('/api/insights', requireAuth, insightsRouter);
 app.use('/api/schedule', requireAuth, scheduleRouter);
 app.use('/api/audit', requireAuth, auditRouter);
 app.use('/api/undo', requireAuth, undoRouter);
+app.use('/api/chat', requireAuth, chatRouter);
 
 // --- Health check endpoint (Render.com hasznalja) ---
 app.get('/health', (req, res) => {

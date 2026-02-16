@@ -37,4 +37,6 @@ services:
         sync: false
       - key: XERO_REDIRECT_URI
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
     healthCheckPath: /health
