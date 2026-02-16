@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, MessageCircle, FileQuestion, Bug, Lightbulb, Send, HelpCircle, ChevronDown, ChevronUp, Bot, Loader2, CheckCircle } from 'lucide-react';
-import { sendMessageToGemini } from '../services/geminiService';
+import { sendChatMessage } from '../services/geminiService';
 import { ChatMessage } from '../types';
 
 interface HelpCenterProps {
@@ -112,6 +112,7 @@ const AiSupportTab = () => {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [sessionId, setSessionId] = useState<string | null>(null);
     const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -126,10 +127,10 @@ const AiSupportTab = () => {
         setLoading(true);
 
         try {
-            // Reusing the main Gemini service but with the existing system prompt which is already helpful
-            const response = await sendMessageToGemini(messages, userMsg.text);
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: response, timestamp: new Date() }]);
-        } catch (e) {
+            const result = await sendChatMessage(sessionId, userMsg.text, 'help_center');
+            if (!sessionId) setSessionId(result.sessionId);
+            setMessages(prev => [...prev, { id: result.message.id, role: 'model', text: result.message.text, timestamp: new Date(result.message.created_at) }]);
+        } catch {
             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: "I'm having trouble connecting. Please use the Feedback tab to report this.", timestamp: new Date() }]);
         } finally {
             setLoading(false);
