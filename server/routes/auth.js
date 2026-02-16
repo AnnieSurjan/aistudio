@@ -1,7 +1,10 @@
 const express = require('express');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dup-detect-dev-secret-change-in-production';
 
 // --- Intuit OAuth 2.0 config ---
 const INTUIT_AUTH_URL = 'https://appcenter.intuit.com/connect/oauth2';
@@ -47,12 +50,23 @@ router.get('/quickbooks', (req, res) => {
       });
     }
 
+    // Extract user_id from JWT if present
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        userId = decoded.userId;
+      } catch (_) { /* token invalid or expired - continue without user */ }
+    }
+
     // Generate CSRF state token
     const state = crypto.randomBytes(16).toString('hex');
     const frontendRedirect = req.query.redirectUri || process.env.FRONTEND_URL || '';
 
     pendingStates.set(state, {
       frontendRedirect,
+      userId,
       created: Date.now(),
     });
 
@@ -95,8 +109,9 @@ router.get('/quickbooks/callback', async (req, res) => {
       console.error('[Auth] Invalid or expired state token');
       return redirectToFrontend(res, '', 'error', 'Invalid state token');
     }
-    // Save frontend redirect before deleting state
+    // Save state data before deleting
     const frontendRedirect = stateData.frontendRedirect || '';
+    const userId = stateData.userId || null;
     pendingStates.delete(state);
 
     // Exchange authorization code for tokens
@@ -158,8 +173,11 @@ router.get('/quickbooks/callback', async (req, res) => {
           .eq('id', existing.id);
         console.log('[Auth] Updated existing connection for realm:', realmId);
       } else {
+        if (!userId) {
+          console.warn('[Auth] No user_id available for new QB connection - using realm as identifier');
+        }
         await supabase.from('quickbooks_connections').insert({
-          user_id: 'user-1',
+          user_id: userId || realmId,
           company_id: realmId,
           company_name: companyName,
           realm_id: realmId,
@@ -177,7 +195,7 @@ router.get('/quickbooks/callback', async (req, res) => {
       // Create audit log (best-effort)
       try {
         await supabase.from('audit_logs').insert({
-          user_id: 'user-1',
+          user_id: userId || realmId,
           action: 'quickbooks_connected',
           details: `Connected QuickBooks company: ${companyName} (${realmId})`,
           created_at: new Date().toISOString(),

@@ -1,7 +1,10 @@
 const express = require('express');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dup-detect-dev-secret-change-in-production';
 
 // --- Xero OAuth 2.0 config ---
 const XERO_AUTH_URL = 'https://login.xero.com/identity/connect/authorize';
@@ -46,11 +49,22 @@ router.get('/xero', (req, res) => {
       });
     }
 
+    // Extract user_id from JWT if present
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        userId = decoded.userId;
+      } catch (_) { /* token invalid or expired - continue without user */ }
+    }
+
     const state = crypto.randomBytes(16).toString('hex');
     const frontendRedirect = req.query.redirectUri || process.env.FRONTEND_URL || '';
 
     pendingStates.set(state, {
       frontendRedirect,
+      userId,
       created: Date.now(),
     });
 
@@ -93,6 +107,7 @@ router.get('/xero/callback', async (req, res) => {
       return redirectToFrontend(res, '', 'error', 'Invalid state token');
     }
     const frontendRedirect = stateData.frontendRedirect || '';
+    const userId = stateData.userId || null;
     pendingStates.delete(state);
 
     // Exchange code for tokens
@@ -170,8 +185,11 @@ router.get('/xero/callback', async (req, res) => {
           .eq('id', existing.id);
         console.log('[Xero Auth] Updated existing connection for tenant:', tenantId);
       } else {
+        if (!userId) {
+          console.warn('[Xero Auth] No user_id available for new Xero connection - using tenant as identifier');
+        }
         await supabase.from('xero_connections').insert({
-          user_id: 'user-1',
+          user_id: userId || tenantId,
           tenant_id: tenantId,
           tenant_name: tenantName,
           access_token: tokens.access_token,
@@ -188,7 +206,7 @@ router.get('/xero/callback', async (req, res) => {
       // Audit log (best-effort)
       try {
         await supabase.from('audit_logs').insert({
-          user_id: 'user-1',
+          user_id: userId || tenantId,
           action: 'xero_connected',
           details: `Connected Xero organisation: ${tenantName} (${tenantId})`,
           created_at: new Date().toISOString(),

@@ -46,6 +46,8 @@ app.use(
 );
 
 // --- Middleware ---
+// Paddle webhook needs raw body for signature verification - must be before express.json()
+app.use('/api/paddle/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // --- Request logging ---
@@ -68,11 +70,15 @@ const scheduleRouter = require('./routes/schedule');
 const auditRouter = require('./routes/audit');
 const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
+const paddleRouter = require('./routes/paddle');
 
 // Public routes (no auth required)
 app.use('/auth', authRouter);
 app.use('/auth', xeroAuthRouter);
 app.use('/auth', registrationRouter);
+
+// Paddle: config is public, webhook has its own auth (signature verification)
+app.use('/api/paddle', paddleRouter);
 
 // Cron has its own auth (CRON_SECRET)
 app.use('/api/cron', cronRouter);
@@ -121,6 +127,7 @@ app.get('*', (req, res) => {
         schedule: '/api/schedule',
         audit: '/api/audit/*',
         undo: '/api/undo/*',
+        paddle: '/api/paddle/*',
         cron: '/api/cron/scheduled-scan',
       },
     });
