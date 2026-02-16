@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FileText, Shield, Scale, Lock, Building } from 'lucide-react';
+import { X, FileText, Shield, Scale, Lock, Building, Cookie, Globe } from 'lucide-react';
 
 interface LegalModalProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, initialTab = '
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200 font-sans">
-      <div className="bg-white rounded-2xl w-full max-w-4xl h-[80vh] shadow-2xl flex flex-col overflow-hidden relative">
+      <div className="bg-white rounded-2xl w-full max-w-4xl h-[85vh] shadow-2xl flex flex-col overflow-hidden relative">
         
         {/* Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shrink-0">
@@ -24,7 +24,7 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, initialTab = '
              </div>
              <div>
                 <h2 className="text-lg font-bold">Legal & Compliance</h2>
-                <p className="text-xs text-slate-400">Dat-assist Kft.</p>
+                <p className="text-xs text-slate-400">Dat-assist Kft. (EU/Hungary)</p>
              </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
@@ -46,117 +46,126 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, initialTab = '
                 className={`flex-1 py-4 text-sm font-bold uppercase tracking-wide flex items-center justify-center space-x-2 transition-colors border-b-2 ${activeTab === 'privacy' ? 'border-blue-600 text-blue-600 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
             >
                 <Shield size={16}/>
-                <span>Privacy Policy</span>
+                <span>Privacy & GDPR</span>
             </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 bg-white text-slate-700 leading-relaxed">
+        <div className="flex-1 overflow-y-auto p-8 bg-white text-slate-700 leading-relaxed scroll-smooth">
             {activeTab === 'terms' ? (
-                <div className="space-y-6 max-w-3xl mx-auto">
+                <div className="space-y-8 max-w-3xl mx-auto">
                     <div className="border-b border-slate-100 pb-4">
                         <h3 className="text-2xl font-bold text-slate-900 mb-2">Terms of Service</h3>
                         <p className="text-sm text-slate-500">Last updated: October 26, 2023</p>
                     </div>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">1. Introduction</h4>
-                        <p className="text-sm">
-                            Welcome to Dup-Detect. These Terms of Service govern your use of the application operated by <strong>Dat-assist Kft.</strong> ("we", "us", or "our"), registered in Hungary. By accessing or using our Service, you agree to be bound by these Terms.
+                        <h4 className="text-lg font-bold text-slate-900 mb-3 flex items-center"><FileText size={18} className="mr-2 text-blue-600"/> 1. Introduction</h4>
+                        <p className="text-sm text-slate-600">
+                            Welcome to Dup-Detect. These Terms of Service govern your use of the SaaS application operated by <strong>Dat-assist Kft.</strong> ("we", "us", or "our"), registered in Budapest, Hungary. By accessing or using our Service, you agree to be bound by these Terms.
                         </p>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">2. Description of Service</h4>
-                        <p className="text-sm">
-                            Dup-Detect is a SaaS application designed to identify duplicate transactions in QuickBooks Online. While we utilize advanced AI algorithms (powered by Google Gemini) to detect anomalies, <strong>Dat-assist Kft. does not guarantee 100% accuracy</strong>. Users are solely responsible for reviewing and confirming any deletions or modifications to their financial data.
+                        <h4 className="text-lg font-bold text-slate-900 mb-3 flex items-center"><Shield size={18} className="mr-2 text-blue-600"/> 2. Nature of Service & Liability</h4>
+                        <p className="text-sm text-slate-600 mb-2">
+                            Dup-Detect utilizes artificial intelligence (Google Gemini models) to identify potential duplicate transactions. You acknowledge and agree that:
                         </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">3. Subscription & Payments</h4>
-                        <p className="text-sm">
-                            Our order process is conducted by our online reseller <strong>Paddle.com</strong>. Paddle.com is the Merchant of Record for all our orders. Paddle provides all customer service inquiries and handles returns. Prices are exclusive of VAT/Sales Tax, which will be calculated at checkout based on your location.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">4. User Responsibilities</h4>
-                        <ul className="list-disc list-inside text-sm space-y-1 ml-2">
-                            <li>You must maintain the confidentiality of your account credentials.</li>
-                            <li>You agree not to use the Service for any illegal activities.</li>
-                            <li>You acknowledge that you retain full ownership and liability for your QuickBooks data.</li>
+                        <ul className="list-disc list-inside text-sm space-y-1 ml-4 text-slate-600">
+                            <li><strong>AI Limitations:</strong> The AI suggestions are probabilistic. We do not guarantee 100% accuracy.</li>
+                            <li><strong>User Responsibility:</strong> You are solely responsible for reviewing and confirming any deletions, merges, or modifications to your financial data.</li>
+                            <li><strong>No Financial Advice:</strong> The Service does not provide accounting, tax, or legal advice.</li>
                         </ul>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">5. Limitation of Liability</h4>
-                        <p className="text-sm">
-                            To the maximum extent permitted by applicable law, Dat-assist Kft. shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your use of the Service.
+                        <h4 className="text-lg font-bold text-slate-900 mb-3 flex items-center"><Lock size={18} className="mr-2 text-blue-600"/> 3. Data Processing Agreement (DPA)</h4>
+                        <p className="text-sm text-slate-600">
+                            For users in the EU/EEA: You act as the <strong>Data Controller</strong> of the financial data you input, and Dat-assist Kft. acts as the <strong>Data Processor</strong>. We process data solely on your instructions (via the App interface) to provide the duplicate detection service.
                         </p>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">6. Governing Law</h4>
-                        <p className="text-sm">
-                            These Terms shall be governed and construed in accordance with the laws of <strong>Hungary</strong>, without regard to its conflict of law provisions.
+                        <h4 className="text-lg font-bold text-slate-900 mb-3">4. Subscription & Cancellation</h4>
+                        <p className="text-sm text-slate-600">
+                            Payments are processed by our Merchant of Record, <strong>Paddle.com</strong>. Subscription fees are billed in advance. You may cancel your subscription at any time; access remains active until the end of the billing period. Refunds are handled according to Paddle's refund policy and EU consumer laws.
+                        </p>
+                    </section>
+
+                    <section>
+                        <h4 className="text-lg font-bold text-slate-900 mb-3">5. Governing Law</h4>
+                        <p className="text-sm text-slate-600">
+                            These Terms shall be governed by the laws of <strong>Hungary</strong>. Any disputes arising from these Terms shall be subject to the exclusive jurisdiction of the courts in Budapest.
                         </p>
                     </section>
                 </div>
             ) : (
-                <div className="space-y-6 max-w-3xl mx-auto">
+                <div className="space-y-8 max-w-3xl mx-auto">
                     <div className="border-b border-slate-100 pb-4">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Privacy Policy</h3>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Privacy Policy & GDPR Compliance</h3>
                         <p className="text-sm text-slate-500">Effective Date: October 26, 2023</p>
+                        <div className="mt-4 inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+                            <Globe size={12} className="mr-1"/> GDPR Compliant
+                        </div>
                     </div>
 
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start space-x-3">
-                        <Building className="text-blue-600 shrink-0 mt-1" size={20}/>
-                        <div className="text-sm text-blue-800">
+                    <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 flex items-start space-x-4">
+                        <div className="bg-white p-2 rounded-lg shadow-sm">
+                             <Building className="text-blue-600" size={24}/>
+                        </div>
+                        <div className="text-sm text-slate-700">
                             <strong>Data Controller:</strong> Dat-assist Kft.<br/>
-                            <strong>Location:</strong> Budapest, Hungary (EU)<br/>
-                            <strong>Contact:</strong> privacy@dat-assist.hu
+                            <strong>Registered Office:</strong> 1051 Budapest, Example Street 12.<br/>
+                            <strong>Data Protection Officer (DPO):</strong> dpo@dupdetect.com
                         </div>
                     </div>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">1. Data We Collect</h4>
-                        <p className="text-sm mb-2">We collect the following types of information:</p>
-                        <ul className="list-disc list-inside text-sm space-y-1 ml-2 text-slate-600">
-                            <li><strong>Account Information:</strong> Name, email address, company name.</li>
-                            <li><strong>Financial Data:</strong> Transaction metadata (amount, date, vendor, memo) fetched via QuickBooks Online API.</li>
-                            <li><strong>Usage Data:</strong> Logs of scans performed and actions taken.</li>
+                        <h4 className="text-lg font-bold text-slate-900 mb-3">1. Legal Basis for Processing</h4>
+                        <p className="text-sm text-slate-600 mb-2">Under GDPR Article 6, we process your data based on:</p>
+                        <ul className="list-disc list-inside text-sm space-y-1 ml-4 text-slate-600">
+                            <li><strong>Contractual Necessity:</strong> To provide the software service you signed up for.</li>
+                            <li><strong>Legitimate Interest:</strong> To improve our fraud detection algorithms and system security.</li>
+                            <li><strong>Legal Obligation:</strong> To comply with Hungarian tax and accounting laws regarding invoice retention.</li>
                         </ul>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">2. How We Use Your Data</h4>
-                        <p className="text-sm">
-                            We use your financial data <strong>solely for the purpose of identifying duplicates</strong>. We do not sell, trade, or rent your financial transaction data to third parties. Data is processed transiently during scans and stored securely for audit logs and undo functionality.
-                        </p>
+                        <h4 className="text-lg font-bold text-slate-900 mb-3">2. Sub-processors (Third Parties)</h4>
+                        <p className="text-sm text-slate-600 mb-2">We share data only with the following strictly necessary providers:</p>
+                        <div className="overflow-hidden rounded-lg border border-slate-200">
+                            <table className="min-w-full text-sm text-left">
+                                <thead className="bg-slate-50 font-semibold text-slate-700">
+                                    <tr>
+                                        <th className="px-4 py-2">Provider</th>
+                                        <th className="px-4 py-2">Purpose</th>
+                                        <th className="px-4 py-2">Location</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    <tr><td className="px-4 py-2">Google Cloud (Vertex AI)</td><td className="px-4 py-2">AI Processing</td><td className="px-4 py-2">EU (Belgium)</td></tr>
+                                    <tr><td className="px-4 py-2">Intuit / Xero</td><td className="px-4 py-2">Data Source API</td><td className="px-4 py-2">US / Global</td></tr>
+                                    <tr><td className="px-4 py-2">Paddle.com</td><td className="px-4 py-2">Payments</td><td className="px-4 py-2">UK</td></tr>
+                                    <tr><td className="px-4 py-2">Render.com</td><td className="px-4 py-2">Hosting</td><td className="px-4 py-2">EU (Frankfurt)</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">3. Third-Party Processors</h4>
-                        <p className="text-sm mb-2">We engage trusted third-party service providers:</p>
-                        <ul className="list-disc list-inside text-sm space-y-1 ml-2 text-slate-600">
-                            <li><strong>Google Gemini (Vertex AI):</strong> Used for analyzing transaction patterns. Data is anonymized where possible.</li>
-                            <li><strong>Paddle:</strong> For payment processing. We do not store credit card details.</li>
-                            <li><strong>Intuit QuickBooks:</strong> As the data source provider.</li>
+                        <h4 className="text-lg font-bold text-slate-900 mb-3">3. Your Rights (GDPR)</h4>
+                        <p className="text-sm text-slate-600 mb-2">You have the following rights regarding your personal data:</p>
+                        <ul className="space-y-2 text-sm text-slate-600">
+                            <li className="flex items-start"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 mr-2 shrink-0"></div><strong>Right to Access:</strong> Request a copy of all data we hold about you.</li>
+                            <li className="flex items-start"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 mr-2 shrink-0"></div><strong>Right to Erasure ("Right to be Forgotten"):</strong> Request deletion of your account and data (subject to legal retention periods).</li>
+                            <li className="flex items-start"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 mr-2 shrink-0"></div><strong>Right to Portability:</strong> Request your audit logs and data in a machine-readable format (CSV/JSON).</li>
                         </ul>
                     </section>
 
                     <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">4. Data Retention & Deletion</h4>
-                        <p className="text-sm">
-                            We retain audit logs for 1 year to comply with security standards. You may request the deletion of your account and all associated data at any time by contacting support. Upon termination, connection tokens to QuickBooks are immediately revoked.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h4 className="text-lg font-semibold text-slate-900 mb-2">5. GDPR Rights</h4>
-                        <p className="text-sm">
-                            If you are a resident of the European Economic Area (EEA), you have certain data protection rights, including the right to access, correct, update, or delete your personal information.
+                        <h4 className="text-lg font-bold text-slate-900 mb-3 flex items-center"><Cookie size={18} className="mr-2 text-orange-500"/> 4. Cookie Policy</h4>
+                        <p className="text-sm text-slate-600">
+                            We use only <strong>essential cookies</strong> required for authentication and session security. We do not use third-party tracking cookies for advertising purposes within the application dashboard.
                         </p>
                     </section>
                 </div>
@@ -169,7 +178,7 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, initialTab = '
                 onClick={onClose}
                 className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg transition-colors"
             >
-                Close
+                I Understand
             </button>
         </div>
       </div>
