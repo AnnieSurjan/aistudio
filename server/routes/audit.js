@@ -93,7 +93,7 @@ router.post('/export', async (req, res) => {
     }
 
     let query = supabase
-      .from('audit_log')
+      .from('audit_logs')
       .select('*')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
