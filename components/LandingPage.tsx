@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, CheckCircle, TrendingUp, Shield, Clock, Database, PlayCircle, Star, Zap } from 'lucide-react';
 import Logo from './Logo';
 import LegalModal from './LegalModal';
@@ -8,13 +8,22 @@ interface LandingPageProps {
   onGetStarted: () => void;
   onLogin: () => void;
   onUpgrade: (plan: string, price: string) => void;
-  onStartDemo: () => void; // New prop for demo mode
+  onStartDemo: () => void;
+  initialLegalTab?: 'terms' | 'privacy' | null; // New prop for direct linking
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade, onStartDemo }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade, onStartDemo, initialLegalTab }) => {
   const [showLegal, setShowLegal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
+
+  // Effect to handle direct links (e.g. ?view=terms)
+  useEffect(() => {
+    if (initialLegalTab) {
+      setLegalTab(initialLegalTab);
+      setShowLegal(true);
+    }
+  }, [initialLegalTab]);
 
   const openLegal = (tab: 'terms' | 'privacy') => {
       setLegalTab(tab);
