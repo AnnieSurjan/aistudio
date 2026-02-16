@@ -158,3 +158,5 @@ router.get('/scan', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.fetchXeroTransactions = fetchXeroTransactions;
+module.exports.getValidXeroAccessToken = getValidAccessToken;

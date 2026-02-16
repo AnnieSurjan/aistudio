@@ -34,8 +34,8 @@ router.post('/resolve', async (req, res) => {
       .insert({
         user_id: req.user.id,
         duplicate_id,
-        original_transaction_id: duplicate.transaction_id_1,
-        duplicate_transaction_id: duplicate.transaction_id_2,
+        original_transaction_id: duplicate.original_transaction_id,
+        duplicate_transaction_id: duplicate.duplicate_transaction_id,
         action_type: 'duplicate_resolution_undo',
         reason,
         undone_by: req.user.id,
@@ -81,8 +81,8 @@ router.post('/resolve', async (req, res) => {
       target_type: 'duplicate_transaction',
       summary: 'Undone duplicate resolution for transaction pair',
       details: {
-        original_transaction: duplicate.transaction_id_1,
-        duplicate_transaction: duplicate.transaction_id_2,
+        original_transaction: duplicate.original_transaction_id,
+        duplicate_transaction: duplicate.duplicate_transaction_id,
         reason,
       },
     });
@@ -171,8 +171,8 @@ router.post('/batch', async (req, res) => {
           .insert({
             user_id: req.user.id,
             duplicate_id: duplicateId,
-            original_transaction_id: duplicate.transaction_id_1,
-            duplicate_transaction_id: duplicate.transaction_id_2,
+            original_transaction_id: duplicate.original_transaction_id,
+            duplicate_transaction_id: duplicate.duplicate_transaction_id,
             action_type: 'duplicate_resolution_undo',
             reason,
             undone_by: req.user.id,
