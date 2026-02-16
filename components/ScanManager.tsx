@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Wifi, WifiOff } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Wifi, WifiOff, Ban, Camera, MonitorPlay } from 'lucide-react';
 
 const PRODUCTION_BACKEND_URL = window.location.origin;
 
@@ -27,6 +27,9 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [scanSchedule, setScanSchedule] = useState('daily');
+
+  // Demo / Director Mode State
+  const [showDemoTools, setShowDemoTools] = useState(false);
 
   // Filter States
   const [filterEntity, setFilterEntity] = useState('');
@@ -57,6 +60,17 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [emailFrequency, setEmailFrequency] = useState('weekly');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
+  // Helper to format date to US format for display (MM/DD/YYYY)
+  const formatDateUS = (isoDate: string) => {
+    if (!isoDate) return '';
+    const [y, m, d] = isoDate.split('-');
+    return `${m}/${d}/${y}`;
+  };
+
+  const [scanSource, setScanSource] = useState<'live' | 'mock' | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [liveSources, setLiveSources] = useState<string[]>([]);
+
   // Cleanup timeout on unmount
   useEffect(() => {
       return () => {
@@ -64,9 +78,41 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
       };
   }, []);
 
-  const [scanSource, setScanSource] = useState<'live' | 'mock' | null>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
-  const [liveSources, setLiveSources] = useState<string[]>([]);
+  // --- DEMO MODE SCENARIOS ---
+  const triggerDemoScenario = (scenario: 'scan_running' | 'results_found' | 'all_clean') => {
+      // Reset everything first
+      setIsScanning(false);
+      setDuplicates([]);
+      setScanLog([]);
+      setShowReviewModal(false);
+      setShowUndoToast(false);
+
+      if (scenario === 'scan_running') {
+          setIsScanning(true);
+          setProgress(67);
+          setScanLog([
+              'Initializing AI engine... OK',
+              'Fetching recent transactions from QuickBooks... OK',
+              'Analyzing Invoice #1042 vs #1089...',
+              'Checking fuzzy match logic on "Office Dept" vs "Office Depot"...',
+              '> Potential match identified (Confidence: 85%)',
+              'Cross-referencing currency exchange rates...'
+          ]);
+      } 
+      else if (scenario === 'results_found') {
+          // Force inject typical results
+          const demoDuplicates = detectDuplicates(MOCK_TRANSACTIONS);
+          setDuplicates(demoDuplicates);
+          onAddAuditLog('Demo', 'Injected demo results for screenshot', 'warning');
+      }
+      else if (scenario === 'all_clean') {
+          // Empty list implies clean state
+          setDuplicates([]);
+          onAddAuditLog('Demo', 'Cleared all results for screenshot', 'success');
+      }
+      
+      setShowDemoTools(false);
+  };
 
   const runScan = async () => {
     setIsScanning(true);
@@ -141,8 +187,6 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
           setScanLog(prev => [...prev, `> ${result.source}: ${result.transactions.length} transactions loaded`]);
         }
 
-        console.log(`[Scan] Fetched ${allTransactions.length} total transactions from: ${sourceNames.join(', ')}`);
-
         setProgress(85);
         setScanLog(prev => [...prev, '> Running duplicate detection algorithm...']);
         const detected = detectDuplicates(allTransactions);
@@ -212,8 +256,14 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setShowReviewModal(true);
   };
 
-  const handleOpenInQB = (txnId: string, type: string) => {
-      // Alert user about sandbox limitation
+  const handleOpenSource = (txnId: string, type: string) => {
+      if (user.isXeroConnected && !user.isQuickBooksConnected) {
+          // Xero Logic
+          alert(`Opening Xero Transaction ${txnId}...\n\n(Simulated Link to Xero)`);
+          return;
+      }
+
+      // Default QB Logic
       alert("Opening QuickBooks Sandbox...\n\nNote: You must be logged into your QBO Sandbox account in another tab for this link to load correctly, otherwise it may hang.");
 
       const baseUrl = "https://app.sandbox.qbo.intuit.com/app";
@@ -393,6 +443,25 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setSelectedGroup(null);
 
     // Trigger Toast Notification
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setShowUndoToast(true);
+    undoTimeoutRef.current = setTimeout(() => setShowUndoToast(false), 5000);
+  };
+
+  const resolveKeepBoth = () => {
+    if (!selectedGroup) return;
+
+    // Push to history
+    setHistory((prev) => [...prev, selectedGroup]); 
+    
+    onAddAuditLog('Dismiss', `Dismissed group ${selectedGroup.id}. Kept all transactions.`, 'info');
+
+    // Remove from UI
+    setDuplicates((prev) => prev.filter((g) => g.id !== selectedGroup.id));
+    setShowReviewModal(false);
+    setSelectedGroup(null);
+
+    // Trigger Toast
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
     setShowUndoToast(true);
     undoTimeoutRef.current = setTimeout(() => setShowUndoToast(false), 5000);
@@ -712,7 +781,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                 </div>
                 <div className="text-slate-400 text-xs font-mono">{progress}% Complete</div>
             </div>
-
+            
             {/* Progress Bar in Terminal */}
             <div className="w-full bg-slate-800 rounded-full h-1.5 mb-4">
                 <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
@@ -772,7 +841,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                         label="Date Range" 
                         icon={Calendar} 
                         active={!!filterDateStart || !!filterDateEnd}
-                        displayValue={filterDateStart ? `${filterDateStart} - ${filterDateEnd || '...'}` : undefined}
+                        displayValue={filterDateStart ? `${formatDateUS(filterDateStart)} - ${formatDateUS(filterDateEnd) || '...'}` : undefined}
                     />
                     <FilterPill 
                         id="type" 
@@ -979,10 +1048,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
                                  <div className="pt-4 mt-4 border-t border-slate-100 flex justify-between items-center">
                                       <button 
-                                        onClick={() => handleOpenInQB(txn.id, txn.type)}
+                                        onClick={() => handleOpenSource(txn.id, txn.type)}
                                         className="text-blue-600 text-xs hover:underline flex items-center"
                                       >
-                                          <ExternalLink size={12} className="mr-1"/> View in QB (Sandbox)
+                                          <ExternalLink size={12} className="mr-1"/> 
+                                          {user.isXeroConnected && !user.isQuickBooksConnected ? 'View in Xero' : 'View in QB (Sandbox)'}
                                       </button>
                                       <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">{txn.type}</span>
                                  </div>
@@ -1002,7 +1072,16 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-slate-200 bg-white flex justify-end space-x-3">
+            <div className="p-4 border-t border-slate-200 bg-white flex justify-between items-center">
+                 <button 
+                    onClick={resolveKeepBoth}
+                    className="px-6 py-2 text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-lg transition-all font-medium flex items-center"
+                    title="Dismiss this group and keep both transactions"
+                 >
+                    <Ban size={16} className="mr-2" />
+                    Dismiss (Keep Both)
+                 </button>
+
                  <button 
                     onClick={() => setShowReviewModal(false)}
                     className="px-6 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium"
@@ -1213,6 +1292,48 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             </button>
         </div>
       )}
+
+        {/* --- DEMO / DIRECTOR MODE TOOLS --- */}
+        <div className="fixed bottom-24 right-20 z-40">
+            {showDemoTools ? (
+                <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xl w-64 animate-in fade-in slide-in-from-bottom-2 border border-slate-700">
+                    <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
+                        <div className="flex items-center font-bold text-sm">
+                            <MonitorPlay size={16} className="mr-2 text-green-400"/> Director Mode
+                        </div>
+                        <button onClick={() => setShowDemoTools(false)} className="text-slate-400 hover:text-white"><X size={16}/></button>
+                    </div>
+                    <div className="space-y-2">
+                        <button 
+                            onClick={() => triggerDemoScenario('scan_running')}
+                            className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300 hover:text-white transition-colors flex items-center"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-blue-500 mr-2"></span> 1. Force "Scanning..."
+                        </button>
+                        <button 
+                            onClick={() => triggerDemoScenario('results_found')}
+                            className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300 hover:text-white transition-colors flex items-center"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></span> 2. Force "Results Found"
+                        </button>
+                        <button 
+                            onClick={() => triggerDemoScenario('all_clean')}
+                            className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-xs text-slate-300 hover:text-white transition-colors flex items-center"
+                        >
+                            <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span> 3. Force "All Clean"
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <button 
+                    onClick={() => setShowDemoTools(true)}
+                    className="w-10 h-10 bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900 rounded-full shadow-md flex items-center justify-center transition-all opacity-50 hover:opacity-100"
+                    title="Open Director Mode (For Screenshots)"
+                >
+                    <Camera size={20} />
+                </button>
+            )}
+        </div>
 
     </div>
   );

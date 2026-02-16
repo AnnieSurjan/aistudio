@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
   scanHistory: ScanResult[];
   user: UserProfile;
   onConnectQuickBooks: () => void;
-  isConnectingQB: boolean;
   onConnectXero: () => void;
+  isConnectingQB: boolean;
   isConnectingXero: boolean;
   onUpgrade?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, isConnectingQB, onConnectXero, isConnectingXero, onUpgrade }) => {
+const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onUpgrade }) => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [dismissOnboarding, setDismissOnboarding] = useState(false);
 
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
@@ -53,12 +54,23 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
     if (onUpgrade) onUpgrade();
   };
 
+  // Calculate Onboarding Progress
+  const steps = [
+      { id: 1, label: 'Create Account', completed: true },
+      { id: 2, label: 'Connect Accounting Software', completed: user.isQuickBooksConnected || user.isXeroConnected },
+      { id: 3, label: 'Run First Scan', completed: scanHistory.length > 0 },
+      { id: 4, label: 'Upgrade to Professional', completed: user.plan !== 'Starter' }
+  ];
+  const completedSteps = steps.filter(s => s.completed).length;
+  const progressPercentage = (completedSteps / steps.length) * 100;
+  const nextStep = steps.find(s => !s.completed);
+
   return (
     <div className="space-y-6 relative">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
             Dashboard
-            {user.isQuickBooksConnected && user.companyName && (
+            {(user.isQuickBooksConnected || user.isXeroConnected) && user.companyName && (
                 <>
                     <span className="text-slate-300 font-light hidden sm:inline">/</span>
                     <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
@@ -71,77 +83,120 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
         <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
 
-      {/* Connect Banners - Show only if not connected */}
-      {(!user.isQuickBooksConnected || !user.isXeroConnected) && (
-        <div className="space-y-4">
+      {/* Onboarding / Setup Progress Widget */}
+      {!dismissOnboarding && progressPercentage < 100 && (
+          <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden mb-6 animate-in slide-in-from-top-4 duration-500">
+              <div className="p-4 md:p-6 bg-gradient-to-r from-blue-50 to-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex-1 w-full">
+                      <div className="flex justify-between items-center mb-2">
+                          <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                              <LayoutList className="mr-2 text-blue-600" size={20}/>
+                              Setup Progress
+                          </h3>
+                          <span className="text-sm font-bold text-blue-600">{Math.round(progressPercentage)}% Complete</span>
+                      </div>
+                      
+                      <div className="w-full bg-slate-200 rounded-full h-2.5 mb-4">
+                          <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-1000 ease-out" style={{ width: `${progressPercentage}%` }}></div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2">
+                          {steps.map((step, idx) => (
+                              <div key={step.id} className={`flex items-center text-xs px-2 py-1 rounded-md border ${step.completed ? 'bg-green-50 border-green-200 text-green-700' : idx === completedSteps ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold ring-2 ring-blue-100' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                                  {step.completed ? <CheckCircle size={12} className="mr-1.5"/> : <span className="w-3 h-3 rounded-full border border-current mr-1.5 flex items-center justify-center text-[8px]">{step.id}</span>}
+                                  {step.label}
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+
+                  {nextStep && (
+                      <div className="flex items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm md:ml-4 w-full md:w-auto">
+                          <div className="mr-3">
+                              <p className="text-xs text-slate-500 uppercase font-bold">Next Step</p>
+                              <p className="text-sm font-semibold text-slate-800">{nextStep.label}</p>
+                          </div>
+                          <button 
+                             onClick={() => {
+                                 // Logic to navigate or trigger action based on nextStep
+                                 if (nextStep.id === 2 && !user.isQuickBooksConnected) onConnectQuickBooks();
+                                 else if (nextStep.id === 4 && onUpgrade) onUpgrade();
+                             }}
+                             className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors"
+                          >
+                              <ChevronRight size={18} />
+                          </button>
+                      </div>
+                  )}
+                  
+                  <button onClick={() => setDismissOnboarding(true)} className="absolute top-2 right-2 text-slate-300 hover:text-slate-500">
+                      <X size={16} />
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* Connection Banners - Show if not connected */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {!user.isQuickBooksConnected && (
-            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col md:flex-row items-center justify-between border border-slate-700 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600 rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-              <div className="flex items-center space-x-4 z-10 mb-4 md:mb-0">
-                 <div className="w-12 h-12 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-lg shrink-0">
-                    <span className="text-white font-bold text-xl">qb</span>
+            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col items-start justify-between border border-slate-700 relative overflow-hidden h-full">
+              {/* Decorator */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#2CA01C] rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-2xl"></div>
+              
+              <div className="flex items-center space-x-4 z-10 mb-4">
+                 <div className="w-10 h-10 bg-[#2CA01C] rounded-lg flex items-center justify-center shadow-lg shrink-0">
+                    <span className="text-white font-bold text-lg">qb</span>
                  </div>
                  <div>
-                   <h3 className="text-white font-bold text-lg">Connect QuickBooks Online</h3>
-                   <p className="text-slate-400 text-sm">Sync your QuickBooks transactions to start finding duplicates.</p>
+                   <h3 className="text-white font-bold text-lg">QuickBooks Online</h3>
+                   <p className="text-slate-400 text-xs">Sync your QBO data.</p>
                  </div>
               </div>
-              <button
+              <button 
                 onClick={onConnectQuickBooks}
                 disabled={isConnectingQB}
-                className="z-10 px-6 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center shrink-0 disabled:opacity-70 disabled:cursor-wait"
+                className="z-10 w-full px-4 py-2 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center justify-center disabled:opacity-70 disabled:cursor-wait text-sm"
               >
                 {isConnectingQB ? (
-                   <>
-                     <RotateCw className="animate-spin mr-2" size={18} />
-                     Connecting...
-                   </>
+                   <><RotateCw className="animate-spin mr-2" size={16} /> Connecting...</>
                 ) : (
-                   <>
-                     <Link className="mr-2" size={18} />
-                     Connect Now
-                   </>
+                   <><Link className="mr-2" size={16} /> Connect</>
                 )}
               </button>
             </div>
           )}
 
           {!user.isXeroConnected && (
-            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col md:flex-row items-center justify-between border border-slate-700 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#13B5EA] rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
-              <div className="flex items-center space-x-4 z-10 mb-4 md:mb-0">
-                 <div className="w-12 h-12 bg-[#13B5EA] rounded-lg flex items-center justify-center shadow-lg shrink-0">
-                    <span className="text-white font-bold text-xl">xero</span>
+            <div className="bg-slate-900 rounded-xl p-6 shadow-lg flex flex-col items-start justify-between border border-slate-700 relative overflow-hidden h-full">
+              {/* Decorator */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#00b7e2] rounded-full opacity-10 -translate-y-1/2 translate-x-1/3 blur-2xl"></div>
+              
+              <div className="flex items-center space-x-4 z-10 mb-4">
+                 <div className="w-10 h-10 bg-[#00b7e2] rounded-lg flex items-center justify-center shadow-lg shrink-0">
+                    <span className="text-white font-bold text-lg">X</span>
                  </div>
                  <div>
-                   <h3 className="text-white font-bold text-lg">Connect Xero</h3>
-                   <p className="text-slate-400 text-sm">Sync your Xero invoices and bank transactions for duplicate detection.</p>
+                   <h3 className="text-white font-bold text-lg">Xero</h3>
+                   <p className="text-slate-400 text-xs">Connect your Xero org.</p>
                  </div>
               </div>
-              <button
+              <button 
                 onClick={onConnectXero}
                 disabled={isConnectingXero}
-                className="z-10 px-6 py-2.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center shrink-0 disabled:opacity-70 disabled:cursor-wait"
+                className="z-10 w-full px-4 py-2 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-bold shadow-md transition-all flex items-center justify-center disabled:opacity-70 disabled:cursor-wait text-sm"
               >
                 {isConnectingXero ? (
-                   <>
-                     <RotateCw className="animate-spin mr-2" size={18} />
-                     Connecting...
-                   </>
+                   <><RotateCw className="animate-spin mr-2" size={16} /> Connecting...</>
                 ) : (
-                   <>
-                     <Link className="mr-2" size={18} />
-                     Connect Now
-                   </>
+                   <><Link className="mr-2" size={16} /> Connect</>
                 )}
               </button>
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div>
@@ -358,8 +413,8 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                                <Check size={14} className="text-green-600" strokeWidth={3}/>
                            </div>
                            <div>
-                               <h4 className="font-semibold text-slate-800 text-sm">5 QuickBooks Accounts</h4>
-                               <p className="text-xs text-slate-500">Manage multiple entities from one dashboard.</p>
+                               <h4 className="font-semibold text-slate-800 text-sm">5 Accounting Files</h4>
+                               <p className="text-xs text-slate-500">Manage multiple entities (QB or Xero).</p>
                            </div>
                        </div>
                        <div className="flex items-start">
