@@ -15,8 +15,9 @@ import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-reac
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Backend API URL - uses same origin since frontend and backend are served together
-const PRODUCTION_BACKEND_URL = window.location.origin;
+// This is the target URL for your backend API.
+// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
@@ -34,6 +35,9 @@ const App: React.FC = () => {
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
+
+  // Legal Modal Initial State (from URL)
+  const [initialLegalTab, setInitialLegalTab] = useState<'terms' | 'privacy' | null>(null);
 
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
@@ -63,35 +67,28 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
+    const view = params.get('view');
+
+    // Handle Deep Link for Legal Pages
+    if (view === 'terms' || view === 'privacy') {
+        setInitialLegalTab(view);
+    }
     
     // Handle successful redirect from QuickBooks OAuth
     if (status === 'success') {
-        setUser(prev => ({
-            ...prev,
+        // In a full production app, you would fetch the company info from your backend here.
+        // For now, we assume if the backend redirected with success, we are connected to the Sandbox.
+        setUser(prev => ({ 
+            ...prev, 
             isQuickBooksConnected: true,
-            companyName: 'QuickBooks Sandbox'
+            companyName: 'QuickBooks Sandbox' 
         }));
-
-        setIsAuthenticated(true);
-        setCurrentView('app');
+        
+        setIsAuthenticated(true); 
+        setCurrentView('app');    
         handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
-
+        
         // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // Handle successful redirect from Xero OAuth
-    if (status === 'xero_success') {
-        setUser(prev => ({
-            ...prev,
-            isXeroConnected: true,
-            xeroOrgName: 'Xero Organisation'
-        }));
-
-        setIsAuthenticated(true);
-        setCurrentView('app');
-        handleAddAuditLog('Connection', 'Xero organisation connected successfully', 'success');
-
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -131,7 +128,6 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('auth_token');
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
@@ -146,13 +142,9 @@ const App: React.FC = () => {
         console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
         
         // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
-        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
+            headers: { 'Content-Type': 'application/json' },
         });
         
         if (!response.ok) {
@@ -175,38 +167,19 @@ const App: React.FC = () => {
   };
 
   const handleConnectXero = async () => {
-      setIsConnectingXero(true);
-
-      const currentFrontendUrl = window.location.origin;
-
-      try {
-        console.log(`Attempting to connect Xero via backend: ${PRODUCTION_BACKEND_URL}`);
-
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
-        });
-
-        if (!response.ok) {
-             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            throw new Error("Invalid response from backend: No redirect URL found.");
-        }
-
-      } catch (error) {
-          console.error("Xero connection failed:", error);
-          alert("Could not connect to the backend server for Xero. Please ensure your backend is running and accessible.");
-          setIsConnectingXero(false);
-      }
+    setIsConnectingXero(true);
+    // Simulation of Xero OAuth flow
+    setTimeout(() => {
+        setIsConnectingXero(false);
+        setUser(prev => ({ 
+            ...prev, 
+            isXeroConnected: true,
+            // If we didn't have a company name from QB, use this one
+            companyName: prev.companyName || 'Xero Demo Org' 
+        }));
+        handleAddAuditLog('Connection', 'Xero Organization connected successfully', 'success');
+        alert("Xero connected successfully (Mock Mode)");
+    }, 2000);
   };
 
   const handleExport = () => {
@@ -252,6 +225,7 @@ const App: React.FC = () => {
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
             onStartDemo={handleStartDemo}
+            initialLegalTab={initialLegalTab}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway 
@@ -284,8 +258,8 @@ const App: React.FC = () => {
         onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
-            <Dashboard
-                scanHistory={MOCK_SCAN_HISTORY}
+            <Dashboard 
+                scanHistory={MOCK_SCAN_HISTORY} 
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 onConnectXero={handleConnectXero}
@@ -368,8 +342,8 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'profile' && (
-            <UserProfile
-                user={user}
+            <UserProfile 
+                user={user} 
                 onConnectQuickBooks={handleConnectQuickBooks}
                 onConnectXero={handleConnectXero}
                 isConnectingQB={isConnectingQB}
