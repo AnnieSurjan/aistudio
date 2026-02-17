@@ -9,6 +9,7 @@ import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
+import ErrorBoundary from './components/ErrorBoundary';
 import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
 import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
@@ -18,19 +19,22 @@ type ViewState = 'landing' | 'auth' | 'app';
 // Backend API URL - uses same origin since frontend and backend are served together
 const PRODUCTION_BACKEND_URL = window.location.origin;
 
-const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
-    { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
-    { id: '2', time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed', type: 'info' },
-];
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
+
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
   const [isConnectingXero, setIsConnectingXero] = useState(false);
-  
+
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
@@ -38,12 +42,15 @@ const App: React.FC = () => {
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
 
+  // Scan History State (fetched from backend)
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
+
   const [user, setUser] = useState<IUserProfile>({
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
-    role: UserRole.MANAGER, 
-    plan: 'Starter', // Default to starter
-    companyName: '', // Empty by default, will be populated upon connection
+    role: UserRole.MANAGER,
+    plan: 'Starter',
+    companyName: '',
     isQuickBooksConnected: false,
     isXeroConnected: false
   });
@@ -60,61 +67,92 @@ const App: React.FC = () => {
       setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // Session restoration: check JWT on mount
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get('status');
-    
-    // Handle successful redirect from QuickBooks OAuth
-    if (status === 'success') {
-        setUser(prev => ({
-            ...prev,
-            isQuickBooksConnected: true,
-            companyName: 'QuickBooks Sandbox'
-        }));
+    const restoreSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get('status');
 
+      // Handle OAuth redirects first
+      if (status === 'success') {
+        setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
         setIsAuthenticated(true);
         setCurrentView('app');
-        handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
-
-        // Clean URL
         window.history.replaceState({}, document.title, window.location.pathname);
-    }
-
-    // Handle successful redirect from Xero OAuth
-    if (status === 'xero_success') {
-        setUser(prev => ({
-            ...prev,
-            isXeroConnected: true,
-            xeroOrgName: 'Xero Organisation'
-        }));
-
+        setIsRestoringSession(false);
+        return;
+      }
+      if (status === 'xero_success') {
+        setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
         setIsAuthenticated(true);
         setCurrentView('app');
-        handleAddAuditLog('Connection', 'Xero organisation connected successfully', 'success');
-
         window.history.replaceState({}, document.title, window.location.pathname);
-    }
+        setIsRestoringSession(false);
+        return;
+      }
+
+      // Try to restore session from JWT
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setIsRestoringSession(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const restored = data.user;
+          setUser(prev => ({
+            ...prev,
+            name: restored.name || prev.name,
+            email: restored.email || prev.email,
+            companyName: restored.companyName || prev.companyName,
+            isQuickBooksConnected: restored.isQuickBooksConnected || false,
+            isXeroConnected: restored.isXeroConnected || false,
+          }));
+          setIsAuthenticated(true);
+          setCurrentView('app');
+          fetchSubscriptionStatus();
+        } else {
+          // Token invalid/expired - clear it
+          localStorage.removeItem('auth_token');
+        }
+      } catch (err) {
+        console.log('[Session] Could not restore session:', err);
+      }
+      setIsRestoringSession(false);
+    };
+
+    restoreSession();
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = (loginUser?: { name: string; email: string; companyName: string }) => {
+    if (loginUser) {
+      setUser(prev => ({
+        ...prev,
+        name: loginUser.name || prev.name,
+        email: loginUser.email || prev.email,
+        companyName: loginUser.companyName || prev.companyName,
+      }));
+    }
     setIsAuthenticated(true);
     setCurrentView('app');
-    // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: 'Alex Accountant', // Mock
+          user: loginUser?.name || 'User',
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
     };
     setAuditLogs(prev => [log, ...prev]);
-    // Fetch subscription from backend after login
     fetchSubscriptionStatus();
   };
-  
+
   const handleStartDemo = () => {
-      // Setup a Demo User state
       setUser({
           name: 'Demo User',
           email: 'demo@dupdetect.com',
@@ -126,8 +164,8 @@ const App: React.FC = () => {
       });
       setIsAuthenticated(true);
       setCurrentView('app');
-      setActiveTab('scan'); // Go straight to the action
-      
+      setActiveTab('scan');
+
       handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
       alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
   };
@@ -139,36 +177,34 @@ const App: React.FC = () => {
     setActiveTab('dashboard');
   };
 
+  const handleDisconnectQB = () => {
+    setUser(prev => ({ ...prev, isQuickBooksConnected: false }));
+    handleAddAuditLog('Disconnection', 'QuickBooks disconnected', 'warning');
+  };
+
+  const handleDisconnectXero = () => {
+    setUser(prev => ({ ...prev, isXeroConnected: false }));
+    handleAddAuditLog('Disconnection', 'Xero disconnected', 'warning');
+  };
+
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
-      
-      const currentFrontendUrl = window.location.origin; 
-      
+      const currentFrontendUrl = window.location.origin;
+
       try {
-        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
-        
-        // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
-        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         });
-        
-        if (!response.ok) {
-             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-        }
+
+        if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
 
         const data = await response.json();
         if (data.url) {
-            // Redirect the user to the real QuickBooks OAuth page provided by the backend
             window.location.href = data.url;
         } else {
             throw new Error("Invalid response from backend: No redirect URL found.");
         }
-
       } catch (error) {
           console.error("Connection failed:", error);
           alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
@@ -178,24 +214,15 @@ const App: React.FC = () => {
 
   const handleConnectXero = async () => {
       setIsConnectingXero(true);
-
       const currentFrontendUrl = window.location.origin;
 
       try {
-        console.log(`Attempting to connect Xero via backend: ${PRODUCTION_BACKEND_URL}`);
-
-        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-            },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         });
 
-        if (!response.ok) {
-             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
 
         const data = await response.json();
         if (data.url) {
@@ -203,7 +230,6 @@ const App: React.FC = () => {
         } else {
             throw new Error("Invalid response from backend: No redirect URL found.");
         }
-
       } catch (error) {
           console.error("Xero connection failed:", error);
           alert("Could not connect to the backend server for Xero. Please ensure your backend is running and accessible.");
@@ -220,8 +246,25 @@ const App: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
       handleAddAuditLog('Export', 'Duplicate transactions exported to CSV', 'info');
+  };
+
+  const handleExportAuditLogs = () => {
+    if (auditLogs.length === 0) { alert("No logs to export."); return; }
+    const headers = ['Timestamp', 'User', 'Action', 'Details', 'Type'];
+    const rows = auditLogs.map(log => [
+      `"${log.time}"`, `"${log.user}"`, `"${log.action}"`, `"${log.details}"`, log.type
+    ].join(','));
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    handleAddAuditLog('Export', `Exported ${auditLogs.length} audit log entries`, 'info');
   };
 
   // Payment Handlers
@@ -232,21 +275,13 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          // Update user plan locally (webhook will also update it in the database)
-          setUser(prev => ({
-              ...prev,
-              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise'
-          }));
+          setUser(prev => ({ ...prev, plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' }));
           handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name} via Paddle`, 'success');
           setShowPaymentModal(false);
-          // If we were on landing page, move to auth/signup
-          if (currentView === 'landing') {
-              setCurrentView('auth');
-          }
+          if (currentView === 'landing') setCurrentView('auth');
       }
   };
 
-  // Fetch subscription status from backend on login
   const fetchSubscriptionStatus = async () => {
       try {
           const token = localStorage.getItem('auth_token');
@@ -265,11 +300,23 @@ const App: React.FC = () => {
       }
   };
 
+  // Show loading during session restore
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (currentView === 'landing') {
     return (
       <>
-        <LandingPage 
-            onGetStarted={() => setCurrentView('auth')} 
+        <LandingPage
+            onGetStarted={() => setCurrentView('auth')}
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
             onStartDemo={handleStartDemo}
@@ -289,25 +336,26 @@ const App: React.FC = () => {
 
   if (currentView === 'auth') {
     return (
-      <Auth 
-        onLogin={handleLogin} 
+      <Auth
+        onLogin={handleLogin}
         onBack={() => setCurrentView('landing')}
       />
     );
   }
 
   return (
+    <ErrorBoundary>
     <div className="font-sans text-slate-900 bg-slate-50 min-h-screen">
-      <Layout 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         user={user}
         onLogout={handleLogout}
         onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
             <Dashboard
-                scanHistory={MOCK_SCAN_HISTORY}
+                scanHistory={scanHistory}
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 onConnectXero={handleConnectXero}
@@ -317,22 +365,22 @@ const App: React.FC = () => {
             />
         )}
         {activeTab === 'scan' && (
-            <ScanManager 
-                onExport={handleExport} 
+            <ScanManager
+                onExport={handleExport}
                 user={user}
                 onAddAuditLog={handleAddAuditLog}
             />
         )}
-        {activeTab === 'history' && <CalendarView history={MOCK_SCAN_HISTORY} />}
-        
+        {activeTab === 'history' && <CalendarView history={scanHistory} />}
+
         {activeTab === 'users' && (
              <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm mt-4">
                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                    <Users className="w-8 h-8" /> 
+                    <Users className="w-8 h-8" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-700">User Management</h3>
                 <p className="text-slate-500 max-w-sm mx-auto mt-2">Manage team roles, permissions, and audit logs. This feature is available in the Enterprise plan.</p>
-                <button 
+                <button
                     onClick={() => handleUpgradeClick('Enterprise', '149')}
                     className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 >
@@ -348,7 +396,7 @@ const App: React.FC = () => {
                         <h2 className="text-2xl font-bold text-slate-800">Audit Logs</h2>
                         <p className="text-slate-500">Track all sensitive actions performed within the application.</p>
                     </div>
-                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                    <button onClick={handleExportAuditLogs} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
                         <FileText size={16} className="mr-1"/> Export Logs
                     </button>
                 </div>
@@ -369,7 +417,7 @@ const App: React.FC = () => {
                                     <td className="px-6 py-3 text-slate-800 text-sm font-medium">{log.user}</td>
                                     <td className="px-6 py-3 text-sm">
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            log.type === 'danger' ? 'bg-red-100 text-red-700' : 
+                                            log.type === 'danger' ? 'bg-red-100 text-red-700' :
                                             log.type === 'warning' ? 'bg-orange-100 text-orange-700' :
                                             log.type === 'success' ? 'bg-green-100 text-green-700' :
                                             'bg-blue-100 text-blue-700'
@@ -394,6 +442,8 @@ const App: React.FC = () => {
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 onConnectXero={handleConnectXero}
+                onDisconnectQB={handleDisconnectQB}
+                onDisconnectXero={handleDisconnectXero}
                 isConnectingQB={isConnectingQB}
                 isConnectingXero={isConnectingXero}
                 onManagePlan={() => {
@@ -408,18 +458,18 @@ const App: React.FC = () => {
                 }}
             />
         )}
-        
+
         {/* Help Center Component */}
-        <HelpCenter 
-            isOpen={showHelp} 
-            onClose={() => setShowHelp(false)} 
+        <HelpCenter
+            isOpen={showHelp}
+            onClose={() => setShowHelp(false)}
         />
 
       </Layout>
-      
+
       {/* Global Payment Modal - can be triggered from anywhere */}
       {showPaymentModal && selectedPlan && (
-        <PaymentGateway 
+        <PaymentGateway
             planName={selectedPlan.name}
             price={selectedPlan.price}
             onClose={() => setShowPaymentModal(false)}
@@ -428,7 +478,7 @@ const App: React.FC = () => {
       )}
 
       <ChatAssistant />
-      <button 
+      <button
         onClick={() => setShowHelp(true)}
         className="fixed bottom-24 right-6 w-10 h-10 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 z-40 transition-colors border border-slate-700"
         title="Help & Support"
@@ -436,6 +486,7 @@ const App: React.FC = () => {
         <HelpCircle size={20} />
       </button>
     </div>
+    </ErrorBoundary>
   );
 };
 

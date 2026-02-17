@@ -260,4 +260,70 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /auth/me - Restore session from JWT token
+router.get('/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'dup-detect-dev-secret-change-in-production';
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const userId = decoded.userId;
+    let user = { id: userId, email: decoded.email, name: decoded.name, companyName: '' };
+
+    // Try to get full user data from DB
+    try {
+      const supabase = getAdminClient();
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (dbUser) {
+        user.name = dbUser.name || user.name;
+        user.companyName = dbUser.company_name || '';
+        user.email = dbUser.email || user.email;
+      }
+
+      // Check QuickBooks connection
+      const { data: qbToken } = await supabase
+        .from('qb_tokens')
+        .select('id, realm_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // Check Xero connection
+      const { data: xeroToken } = await supabase
+        .from('xero_tokens')
+        .select('id, tenant_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      user.isQuickBooksConnected = !!qbToken;
+      user.isXeroConnected = !!xeroToken;
+      user.qbRealmId = qbToken?.realm_id || null;
+      user.xeroTenantId = xeroToken?.tenant_id || null;
+    } catch (dbErr) {
+      console.warn('[Auth/me] DB query failed, returning JWT data only:', dbErr.message);
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('[Auth/me] Error:', error);
+    res.status(500).json({ error: 'Failed to restore session' });
+  }
+});
+
 module.exports = router;

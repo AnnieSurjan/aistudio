@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
 import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
+
+const PRODUCTION_BACKEND_URL = window.location.origin;
 
 interface DashboardProps {
   scanHistory: ScanResult[];
@@ -13,9 +15,58 @@ interface DashboardProps {
   onUpgrade?: () => void;
 }
 
+interface InsightsMetrics {
+  avgScanTime: number;
+  avgTransactionsPerSec: number;
+  totalScansThisMonth: number;
+  duplicateDetectionRate: number;
+  scanSuccessRate: number;
+  recentScans: { date: string; duration: number; transactions: number; duplicates: number; tps: number }[];
+  monthlyTrend: { month: string; scans: number; duplicates: number; avgTime: number }[];
+}
+
+const FALLBACK_PIE_DATA = [
+  { name: 'Invoices', value: 400 },
+  { name: 'Bills', value: 300 },
+  { name: 'Payments', value: 300 },
+  { name: 'Journals', value: 200 },
+];
+
+const FALLBACK_SAVINGS_DATA = [
+  { month: 'May', saved: 1200, count: 8 },
+  { month: 'Jun', saved: 1850, count: 12 },
+  { month: 'Jul', saved: 3200, count: 18 },
+  { month: 'Aug', saved: 2900, count: 15 },
+  { month: 'Sep', saved: 4100, count: 22 },
+  { month: 'Oct', saved: 5600, count: 28 },
+];
+
 const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onUpgrade }) => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [dismissOnboarding, setDismissOnboarding] = useState(false);
+  const [insights, setInsights] = useState<InsightsMetrics | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+
+  // Fetch real insights from backend
+  useEffect(() => {
+    const fetchInsights = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) { setInsightsLoading(false); return; }
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/insights`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setInsights(data.metrics);
+        }
+      } catch (err) {
+        console.log('[Dashboard] Could not fetch insights:', err);
+      }
+      setInsightsLoading(false);
+    };
+    fetchInsights();
+  }, []);
 
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
@@ -23,27 +74,20 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   }));
 
   const totalDuplicates = scanHistory.reduce((acc, curr) => acc + curr.duplicatesFound, 0);
-  // Calculate mock savings: approx $150 per duplicate on average (time + potential error cost)
-  const totalSavings = totalDuplicates * 150 + 1250; 
-  const successRate = 98; // Mocked
+  const totalSavings = totalDuplicates * 150 + 1250;
+  const successRate = insights?.scanSuccessRate ?? 98;
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
-  const pieData = [
-    { name: 'Invoices', value: 400 },
-    { name: 'Bills', value: 300 },
-    { name: 'Payments', value: 300 },
-    { name: 'Journals', value: 200 },
-  ];
+  const pieData = FALLBACK_PIE_DATA;
 
-  // Mock Savings Data for the new Composed Chart
-  const savingsData = [
-      { month: 'May', saved: 1200, count: 8 },
-      { month: 'Jun', saved: 1850, count: 12 },
-      { month: 'Jul', saved: 3200, count: 18 },
-      { month: 'Aug', saved: 2900, count: 15 },
-      { month: 'Sep', saved: 4100, count: 22 },
-      { month: 'Oct', saved: 5600, count: 28 },
-  ];
+  // Use real monthly trend data if available from insights
+  const savingsData = insights?.monthlyTrend
+    ? insights.monthlyTrend.reverse().map(m => ({
+        month: m.month.split(' ')[0].slice(0, 3),
+        saved: m.duplicates * 150,
+        count: m.duplicates,
+      }))
+    : FALLBACK_SAVINGS_DATA;
 
   const handleUpgradeClick = () => {
     setShowUpgradeModal(true);

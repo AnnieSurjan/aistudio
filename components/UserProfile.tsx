@@ -7,6 +7,8 @@ interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
   onConnectXero?: () => void;
+  onDisconnectQB?: () => void;
+  onDisconnectXero?: () => void;
   isConnectingQB?: boolean;
   isConnectingXero?: boolean;
   onManagePlan?: () => void;
@@ -18,7 +20,7 @@ const MOCK_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onManagePlan }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, onDisconnectQB, onDisconnectXero, isConnectingQB, isConnectingXero, onManagePlan }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -87,7 +89,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                 </div>
                 
                 {user.isQuickBooksConnected ? (
-                    <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
+                    <button onClick={onDisconnectQB} className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (
@@ -126,7 +128,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                 </div>
                 
                 {user.isXeroConnected ? (
-                    <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
+                    <button onClick={onDisconnectXero} className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
                         Disconnect
                     </button>
                 ) : (

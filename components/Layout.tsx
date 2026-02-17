@@ -1,7 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UserProfile, UserRole, AppNotification } from '../types';
 import Logo from './Logo';
+
+const PRODUCTION_BACKEND_URL = window.location.origin;
+
+const FALLBACK_NOTIFICATIONS: AppNotification[] = [
+  { id: '1', title: 'Scan Completed', message: 'Daily scan found 3 potential duplicates.', type: 'warning', isRead: false, time: '2m ago' },
+  { id: '2', title: 'Backup Successful', message: 'Your transaction data has been backed up securely.', type: 'success', isRead: false, time: '1h ago' },
+  { id: '3', title: 'System Update', message: 'Dup-Detect has been updated to v2.1.', type: 'info', isRead: true, time: '1d ago' },
+];
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,28 +31,74 @@ interface LayoutProps {
   onShowHelp?: () => void;
 }
 
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  { id: '1', title: 'Scan Completed', message: 'Daily scan found 3 potential duplicates.', type: 'warning', isRead: false, time: '2m ago' },
-  { id: '2', title: 'Backup Successful', message: 'Your transaction data has been backed up securely.', type: 'success', isRead: false, time: '1h ago' },
-  { id: '3', title: 'System Update', message: 'Dup-Detect has been updated to v2.1.', type: 'info', isRead: true, time: '1d ago' },
-];
-
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user, onLogout, onShowHelp }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
-  
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
   // Sidebar collapsed state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Fetch notifications from backend
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) { setNotifications(FALLBACK_NOTIFICATIONS); return; }
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.notifications && data.notifications.length > 0) {
+            setNotifications(data.notifications.map((n: any) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type || 'info',
+              isRead: n.is_read,
+              time: timeAgo(n.created_at),
+            })));
+          } else {
+            setNotifications(FALLBACK_NOTIFICATIONS);
+          }
+        } else {
+          setNotifications(FALLBACK_NOTIFICATIONS);
+        }
+      } catch {
+        setNotifications(FALLBACK_NOTIFICATIONS);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const markAllRead = () => {
+  const markAllRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-all-read`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        });
+      }
+    } catch { /* silent */ }
   };
 
-  const handleNotificationClick = (id: string) => {
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const handleNotificationClick = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-read`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId: id }),
+        });
+      }
+    } catch { /* silent */ }
   };
 
   // Menu items definition with role-based visibility
