@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Search, Users, Settings, LogOut, Calendar, Menu, ClipboardList, Bell, X, HelpCircle, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { UserProfile, UserRole, AppNotification } from '../types';
 import Logo from './Logo';
 
@@ -33,7 +33,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   };
 
   const handleNotificationClick = (id: string) => {
+      // 1. Mark as read
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      
+      // 2. Close dropdown
+      setShowNotifications(false);
+
+      // 3. Navigate logic based on notification content
+      const note = notifications.find(n => n.id === id);
+      if (note) {
+          if (note.title.includes('Scan')) {
+              setActiveTab('history');
+          } else if (note.title.includes('Backup')) {
+              setActiveTab('profile'); 
+          } else {
+              setActiveTab('dashboard');
+          }
+      }
   };
 
   // Menu items definition with role-based visibility
@@ -75,7 +91,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
           {isSidebarCollapsed ? (
               <button 
                 onClick={() => setActiveTab('dashboard')}
-                className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center text-white font-bold text-xl hover:opacity-90 transition-opacity"
+                className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl hover:opacity-90 transition-opacity"
               >
                   D
               </button>
@@ -196,7 +212,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
                 <div className="relative">
                     <button 
                         onClick={() => setShowNotifications(!showNotifications)}
-                        className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors relative"
+                        className={`p-2 rounded-full transition-colors relative ${showNotifications ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:bg-slate-100'}`}
                     >
                         <Bell size={20} />
                         {unreadCount > 0 && (
@@ -223,7 +239,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
                                             <button 
                                                 key={note.id} 
                                                 onClick={() => handleNotificationClick(note.id)}
-                                                className={`w-full text-left p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!note.isRead ? 'bg-blue-50/50' : ''}`}
+                                                className={`w-full text-left p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors group relative ${!note.isRead ? 'bg-blue-50/50' : ''}`}
                                             >
                                                 <div className="flex justify-between items-start mb-1">
                                                     <h4 className={`text-sm font-medium ${note.type === 'warning' ? 'text-orange-700' : note.type === 'success' ? 'text-green-700' : 'text-slate-800'}`}>
@@ -231,7 +247,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
                                                     </h4>
                                                     <span className="text-[10px] text-slate-400 whitespace-nowrap ml-2">{note.time}</span>
                                                 </div>
-                                                <p className="text-xs text-slate-500 leading-relaxed">{note.message}</p>
+                                                <p className="text-xs text-slate-500 leading-relaxed pr-6">{note.message}</p>
+                                                
+                                                {/* Click indicator on hover */}
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-slate-300 transition-opacity">
+                                                    <ChevronRight size={16} />
+                                                </div>
+                                                {!note.isRead && (
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+                                                )}
                                             </button>
                                         ))
                                     )}
