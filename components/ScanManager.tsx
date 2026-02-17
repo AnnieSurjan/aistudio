@@ -6,10 +6,11 @@ import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Fi
 interface ScanManagerProps {
   onExport: () => void; // Kept for interface compatibility but logic moved internal
   onAddAuditLog: (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success') => void;
+  onScanComplete?: (results: DuplicateGroup[]) => void;
   user: UserProfile;
 }
 
-const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user }) => {
+const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, onScanComplete, user }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
@@ -105,14 +106,22 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         if (next >= 100) {
           clearInterval(interval);
           setIsScanning(false);
+          
           // Perform detection
           const detected = detectDuplicates(MOCK_TRANSACTIONS);
           setDuplicates(detected);
+          
+          // Trigger callbacks
           if (detected.length > 0) {
              onAddAuditLog('Scan Completed', `Scan finished. Found ${detected.length} potential duplicate groups.`, 'warning');
           } else {
              onAddAuditLog('Scan Completed', 'Scan finished. No duplicates found.', 'info');
           }
+          
+          if (onScanComplete) {
+              onScanComplete(detected);
+          }
+
           return 100;
         }
         

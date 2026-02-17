@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile as IUserProfile, UserRole } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Key } from 'lucide-react';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Key, Trash2 } from 'lucide-react';
 import LegalModal from './LegalModal';
 
 interface UserProfileProps {
@@ -12,13 +12,14 @@ interface UserProfileProps {
   onManagePlan?: () => void;
 }
 
-// Mock data for existing team members
-const MOCK_TEAM = [
+// Initial mock data
+const INITIAL_TEAM = [
   { id: 1, name: 'Sarah Finance', email: 'sarah@finance-pro.com', role: 'VIEWER', status: 'Active' },
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
 const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onManagePlan }) => {
+  const [teamMembers, setTeamMembers] = useState(INITIAL_TEAM);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -43,8 +44,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
 
     setInviteStatus('sending');
     
-    // Simulate API call
+    // Simulate API call and update state
     setTimeout(() => {
+        const newUser = {
+            id: Date.now(),
+            name: inviteEmail.split('@')[0], // Generate a name from email for demo
+            email: inviteEmail,
+            role: inviteRole,
+            status: 'Pending'
+        };
+        
+        setTeamMembers(prev => [...prev, newUser]);
+        
         setInviteStatus('success');
         setInviteEmail('');
         // Reset status after 3 seconds
@@ -52,6 +63,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
     }, 1500);
   };
   
+  const handleRemoveUser = (id: number) => {
+      if (window.confirm("Are you sure you want to remove this user?")) {
+          setTeamMembers(prev => prev.filter(m => m.id !== id));
+      }
+  };
+
   const openLegal = (tab: 'terms' | 'privacy') => {
       setLegalTab(tab);
       setShowLegal(true);
@@ -308,16 +325,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                                     <td className="px-4 py-3 text-right text-slate-400 disabled cursor-not-allowed"><MoreHorizontal size={16} className="ml-auto"/></td>
                                 </tr>
                                 
-                                {/* Mock Users */}
-                                {MOCK_TEAM.map(member => (
+                                {/* Dynamic Team Members */}
+                                {teamMembers.map(member => (
                                     <tr key={member.id} className="hover:bg-slate-50">
                                         <td className="px-4 py-3">
                                             <div className="flex items-center">
-                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs mr-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs mr-3 capitalize">
                                                     {member.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-slate-900">{member.name}</div>
+                                                    <div className="font-medium text-slate-900 capitalize">{member.name}</div>
                                                     <div className="text-xs text-slate-500">{member.email}</div>
                                                 </div>
                                             </div>
@@ -333,8 +350,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button className="text-slate-400 hover:text-slate-600">
-                                                <MoreHorizontal size={16} className="ml-auto"/>
+                                            <button 
+                                                onClick={() => handleRemoveUser(member.id)}
+                                                className="text-slate-400 hover:text-red-600 transition-colors"
+                                                title="Remove User"
+                                            >
+                                                <Trash2 size={16} className="ml-auto"/>
                                             </button>
                                         </td>
                                     </tr>
