@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile as IUserProfile, UserRole } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale } from 'lucide-react';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Key } from 'lucide-react';
 import LegalModal from './LegalModal';
 
 interface UserProfileProps {
@@ -27,6 +27,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
 
+  // Change Password State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   // Check if user has permission to invite (Admin or Manager)
   const canInvite = user.role === UserRole.ADMIN || user.role === UserRole.MANAGER;
 
@@ -48,6 +55,25 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
   const openLegal = (tab: 'terms' | 'privacy') => {
       setLegalTab(tab);
       setShowLegal(true);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newPassword !== confirmPassword) {
+          alert("New passwords do not match.");
+          return;
+      }
+      setIsChangingPassword(true);
+      
+      // Simulate API delay
+      setTimeout(() => {
+          setIsChangingPassword(false);
+          setShowPasswordModal(false);
+          setOldPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          alert("Password changed successfully.");
+      }, 1500);
   };
 
   return (
@@ -330,6 +356,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
         <p className="text-sm text-slate-500 mb-6">Dup-Detect performs daily secure backups. Review our legal terms regarding data handling below.</p>
         
         <div className="space-y-4">
+             <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                <span className="text-slate-700">Password</span>
+                <button 
+                    onClick={() => setShowPasswordModal(true)}
+                    className="flex items-center bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
+                >
+                    <Key size={14} className="mr-1.5"/> Change Password
+                </button>
+            </div>
             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                 <span className="text-slate-700">Two-Factor Authentication</span>
                 <button className="bg-slate-200 text-slate-600 px-3 py-1 rounded text-sm hover:bg-slate-300">Enable</button>
@@ -352,6 +387,64 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
         </div>
       </div>
       
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Change Password</h3>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex justify-end space-x-3 pt-4">
+                         <button 
+                            type="button"
+                            onClick={() => setShowPasswordModal(false)}
+                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                         >
+                             Cancel
+                         </button>
+                         <button 
+                            type="submit"
+                            disabled={isChangingPassword}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70"
+                         >
+                             {isChangingPassword ? 'Updating...' : 'Update Password'}
+                         </button>
+                    </div>
+                </form>
+           </div>
+        </div>
+      )}
+
       {/* Legal Modal */}
       <LegalModal 
         isOpen={showLegal}
