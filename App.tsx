@@ -116,14 +116,25 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = (data?: { name: string; email: string; companyName: string }) => {
+    // If login data is provided (from registration or login form), update the user state
+    if (data) {
+        setUser(prev => ({
+            ...prev,
+            name: data.name,
+            email: data.email,
+            companyName: data.companyName || prev.companyName
+        }));
+    }
+
     setIsAuthenticated(true);
     setCurrentView('app');
+    
     // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: user.name, // Use current state user
+          user: data?.name || user.name,
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
