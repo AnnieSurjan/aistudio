@@ -24,9 +24,26 @@ const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
     { id: '2', time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed', type: 'info' },
 ];
 
+const DEFAULT_USER: IUserProfile = {
+    name: 'Alex Accountant',
+    email: 'alex@finance-pro.com',
+    role: UserRole.MANAGER, 
+    plan: 'Starter', // Default to starter
+    companyName: '', // Empty by default, will be populated upon connection
+    isQuickBooksConnected: false,
+    isXeroConnected: false
+};
+
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Initialize state from localStorage if available
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+      return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
+  });
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+      return localStorage.getItem('dupdetect_auth') === 'true';
+  });
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [isConnectingQB, setIsConnectingQB] = useState(false);
@@ -42,15 +59,21 @@ const App: React.FC = () => {
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
 
-  const [user, setUser] = useState<IUserProfile>({
-    name: 'Alex Accountant',
-    email: 'alex@finance-pro.com',
-    role: UserRole.MANAGER, 
-    plan: 'Starter', // Default to starter
-    companyName: '', // Empty by default, will be populated upon connection
-    isQuickBooksConnected: false,
-    isXeroConnected: false
+  const [user, setUser] = useState<IUserProfile>(() => {
+      const savedUser = localStorage.getItem('dupdetect_user');
+      return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
   });
+
+  // Persist User changes
+  useEffect(() => {
+      localStorage.setItem('dupdetect_user', JSON.stringify(user));
+  }, [user]);
+
+  // Persist View/Auth changes
+  useEffect(() => {
+      localStorage.setItem('dupdetect_view', currentView);
+      localStorage.setItem('dupdetect_auth', String(isAuthenticated));
+  }, [currentView, isAuthenticated]);
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
       const newLog: AuditLogEntry = {
@@ -100,19 +123,16 @@ const App: React.FC = () => {
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: 'Alex Accountant', // Mock
+          user: user.name, // Use current state user
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
     };
     setAuditLogs(prev => [log, ...prev]);
-    // Fetch subscription from backend after login
-    fetchSubscriptionStatus();
   };
   
   const handleStartDemo = () => {
-      // Setup a Demo User state
-      setUser({
+      const demoUser = {
           name: 'Demo User',
           email: 'demo@dupdetect.com',
           role: UserRole.ADMIN,
@@ -120,7 +140,9 @@ const App: React.FC = () => {
           companyName: 'Demo Corp Ltd.',
           isQuickBooksConnected: true,
           isXeroConnected: true
-      });
+      } as IUserProfile;
+
+      setUser(demoUser);
       setIsAuthenticated(true);
       setCurrentView('app');
       setActiveTab('scan'); // Go straight to the action
@@ -133,6 +155,12 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
+    localStorage.removeItem('dupdetect_auth');
+    localStorage.removeItem('dupdetect_view');
+    // We keep the user object in storage so email field could be pre-filled, but reset connection status ideally.
+    // For now, let's reset to default to simulate full logout.
+    setUser(DEFAULT_USER);
+    localStorage.removeItem('dupdetect_user');
   };
 
   const handleConnectQuickBooks = async () => {
@@ -205,36 +233,17 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          // Update user plan locally (webhook will also update it in the database)
-          setUser(prev => ({
-              ...prev,
-              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise'
+          // Update user plan
+          setUser(prev => ({ 
+              ...prev, 
+              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' 
           }));
-          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name} via Paddle`, 'success');
+          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
           setShowPaymentModal(false);
-          // If we were on landing page, move to auth/signup
+          // If we were on landing page, move to app or show success
           if (currentView === 'landing') {
-              setCurrentView('auth');
+              setCurrentView('auth'); // Or direct to app if already logged in logic existed
           }
-      }
-  };
-
-  // Fetch subscription status from backend on login
-  const fetchSubscriptionStatus = async () => {
-      try {
-          const token = localStorage.getItem('auth_token');
-          if (!token) return;
-          const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/paddle/subscription`, {
-              headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (response.ok) {
-              const data = await response.json();
-              if (data.plan && data.plan !== 'Starter') {
-                  setUser(prev => ({ ...prev, plan: data.plan }));
-              }
-          }
-      } catch (err) {
-          console.log('[Subscription] Could not fetch subscription status:', err);
       }
   };
 
@@ -249,12 +258,11 @@ const App: React.FC = () => {
             initialLegalTab={initialLegalTab}
         />
         {showPaymentModal && selectedPlan && (
-            <PaymentGateway
+            <PaymentGateway 
                 planName={selectedPlan.name}
                 price={selectedPlan.price}
                 onClose={() => setShowPaymentModal(false)}
                 onSuccess={handlePaymentSuccess}
-                userEmail={user.email}
             />
         )}
       </>
