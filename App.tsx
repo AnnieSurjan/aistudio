@@ -73,8 +73,9 @@ const App: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const status = params.get('status');
 
-      // Handle OAuth redirects first
-      if (status === 'success') {
+      // Handle OAuth redirects - only trust if user has a valid JWT session
+      const existingToken = localStorage.getItem('auth_token');
+      if (status === 'success' && existingToken) {
         setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
         setIsAuthenticated(true);
         setCurrentView('app');
@@ -82,13 +83,17 @@ const App: React.FC = () => {
         setIsRestoringSession(false);
         return;
       }
-      if (status === 'xero_success') {
+      if (status === 'xero_success' && existingToken) {
         setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
         setIsAuthenticated(true);
         setCurrentView('app');
         window.history.replaceState({}, document.title, window.location.pathname);
         setIsRestoringSession(false);
         return;
+      }
+      // If OAuth redirect but no token, clean URL and fall through to login
+      if (status) {
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
 
       // Try to restore session from JWT
@@ -249,11 +254,18 @@ const App: React.FC = () => {
       handleAddAuditLog('Export', 'Duplicate transactions exported to CSV', 'info');
   };
 
+  // Sanitize CSV cell to prevent formula injection (=, +, -, @, tab, cr)
+  const csvSafe = (val: string): string => {
+    const escaped = val.replace(/"/g, '""');
+    if (/^[=+\-@\t\r]/.test(escaped)) return `"'${escaped}"`;
+    return `"${escaped}"`;
+  };
+
   const handleExportAuditLogs = () => {
     if (auditLogs.length === 0) { alert("No logs to export."); return; }
     const headers = ['Timestamp', 'User', 'Action', 'Details', 'Type'];
     const rows = auditLogs.map(log => [
-      `"${log.time}"`, `"${log.user}"`, `"${log.action}"`, `"${log.details}"`, log.type
+      csvSafe(log.time), csvSafe(log.user), csvSafe(log.action), csvSafe(log.details), csvSafe(log.type)
     ].join(','));
     const csvContent = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

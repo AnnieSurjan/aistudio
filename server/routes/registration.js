@@ -297,24 +297,22 @@ router.get('/me', async (req, res) => {
         user.email = dbUser.email || user.email;
       }
 
-      // Check QuickBooks connection
+      // Check QuickBooks connection (only check existence, don't return internal IDs)
       const { data: qbToken } = await supabase
         .from('qb_tokens')
-        .select('id, realm_id')
+        .select('id')
         .eq('user_id', userId)
         .maybeSingle();
 
-      // Check Xero connection
+      // Check Xero connection (only check existence, don't return internal IDs)
       const { data: xeroToken } = await supabase
         .from('xero_tokens')
-        .select('id, tenant_id')
+        .select('id')
         .eq('user_id', userId)
         .maybeSingle();
 
       user.isQuickBooksConnected = !!qbToken;
       user.isXeroConnected = !!xeroToken;
-      user.qbRealmId = qbToken?.realm_id || null;
-      user.xeroTenantId = xeroToken?.tenant_id || null;
     } catch (dbErr) {
       console.warn('[Auth/me] DB query failed, returning JWT data only:', dbErr.message);
     }
