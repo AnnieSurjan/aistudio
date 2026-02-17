@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DuplicateGroup, Transaction, TransactionType, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Ban } from 'lucide-react';
+import { Play, RotateCcw, Check, Trash2, AlertCircle, Download, Undo, Search, Filter, XCircle, ShieldCheck, ThumbsUp, ExternalLink, Settings, Plus, X, Split, ArrowRightLeft, AlertTriangle, Mail, Calendar, Save, FileText, ChevronDown, DollarSign, Tag, Briefcase, User, Layers, Terminal, Ban, CheckSquare, Square } from 'lucide-react';
 
 interface ScanManagerProps {
   onExport: () => void; // Kept for interface compatibility but logic moved internal
@@ -14,6 +14,9 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [progress, setProgress] = useState(0);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<DuplicateGroup | null>(null);
+  
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   // Scanning Visuals
   const [scanLog, setScanLog] = useState<string[]>([]);
@@ -62,6 +65,21 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     return `${m}/${d}/${y}`;
   };
 
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Only if no modal is open
+        if (showReviewModal || showRulesModal || showEmailModal) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+            // Logic to select next could be added here for advanced power users
+            // For now, we just prevent default scrolling if we were implementing row focus
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showReviewModal, showRulesModal, showEmailModal]);
+
   // Cleanup timeout on unmount
   useEffect(() => {
       return () => {
@@ -73,6 +91,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setIsScanning(true);
     setProgress(0);
     setDuplicates([]);
+    setSelectedIds(new Set());
     setHistory([]); // Clear history on new scan
     setScanLog(['Initializing AI engine...', 'Fetching recent transactions from QuickBooks...', 'Fetching recent transactions from Xero...']);
     setShowUndoToast(false);
@@ -288,6 +307,38 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
           setShowEmailModal(false);
           onAddAuditLog('Reporting', `Updated client reporting: ${emailFrequency} emails to ${emailRecipients}`, 'success');
       }, 1000);
+  };
+
+  // Bulk Actions
+  const toggleGroupSelection = (groupId: string) => {
+      const newSelected = new Set(selectedIds);
+      if (newSelected.has(groupId)) {
+          newSelected.delete(groupId);
+      } else {
+          newSelected.add(groupId);
+      }
+      setSelectedIds(newSelected);
+  };
+
+  const toggleAllSelection = (filteredGroups: DuplicateGroup[]) => {
+      if (selectedIds.size === filteredGroups.length) {
+          setSelectedIds(new Set());
+      } else {
+          setSelectedIds(new Set(filteredGroups.map(g => g.id)));
+      }
+  };
+
+  const handleBulkDismiss = () => {
+      if (selectedIds.size === 0) return;
+      const count = selectedIds.size;
+      
+      // Remove groups from duplicates
+      setDuplicates(prev => prev.filter(g => !selectedIds.has(g.id)));
+      
+      onAddAuditLog('Bulk Action', `Dismissed ${count} groups.`, 'info');
+      setSelectedIds(new Set());
+      setShowUndoToast(true);
+      undoTimeoutRef.current = setTimeout(() => setShowUndoToast(false), 5000);
   };
 
   // Resolution Actions
@@ -679,12 +730,28 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
             {/* NEW FILTER BAR */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-4">
-                <div className="flex items-center mb-3 text-slate-700 text-sm font-semibold">
-                    <Filter size={16} className="mr-2"/>
-                    Filter Results
-                    {isFiltering && (
-                        <button onClick={clearFilters} className="ml-3 text-xs text-red-500 hover:text-red-700 font-normal flex items-center">
-                            <X size={12} className="mr-1"/> Clear All
+                <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center text-slate-700 text-sm font-semibold">
+                        <Filter size={16} className="mr-2"/>
+                        Filter Results
+                        {isFiltering && (
+                            <button onClick={clearFilters} className="ml-3 text-xs text-red-500 hover:text-red-700 font-normal flex items-center">
+                                <X size={12} className="mr-1"/> Clear All
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* Bulk Selection Toggle */}
+                    {filteredDuplicates.length > 0 && (
+                        <button 
+                            onClick={() => toggleAllSelection(filteredDuplicates)}
+                            className="text-sm text-slate-600 hover:text-blue-600 font-medium flex items-center transition-colors"
+                        >
+                            {selectedIds.size === filteredDuplicates.length ? (
+                                <><CheckSquare size={16} className="mr-2 text-blue-600"/> Deselect All</>
+                            ) : (
+                                <><Square size={16} className="mr-2"/> Select All</>
+                            )}
                         </button>
                     )}
                 </div>
@@ -735,79 +802,107 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
                 </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-6 pb-20">
             {filteredDuplicates.length === 0 ? (
                 <div className="text-center py-10 text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                     No transactions match your filters or rules.
                 </div>
             ) : (
-                filteredDuplicates.map((group) => (
-                    <div key={group.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    {/* Group Header */}
-                    <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2">
-                        <div className="flex items-center">
-                            <span className="text-sm font-bold text-slate-700">{group.reason}</span>
-                            <span className={`ml-3 text-xs px-2 py-0.5 rounded-full ${group.confidenceScore > 0.9 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
-                                {(group.confidenceScore * 100).toFixed(0)}% Confidence
-                            </span>
+                filteredDuplicates.map((group) => {
+                    const isSelected = selectedIds.has(group.id);
+                    return (
+                        <div key={group.id} className={`bg-white rounded-xl shadow-sm border transition-all ${isSelected ? 'border-blue-400 ring-1 ring-blue-100 shadow-md' : 'border-slate-200'} overflow-hidden`}>
+                        {/* Group Header */}
+                        <div className={`px-6 py-3 border-b flex flex-col sm:flex-row justify-between items-center gap-2 ${isSelected ? 'bg-blue-50/50 border-blue-100' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex items-center">
+                                <button 
+                                    onClick={() => toggleGroupSelection(group.id)}
+                                    className={`mr-4 transition-colors ${isSelected ? 'text-blue-600' : 'text-slate-300 hover:text-slate-400'}`}
+                                >
+                                    {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                                </button>
+                                <span className="text-sm font-bold text-slate-700">{group.reason}</span>
+                                <span className={`ml-3 text-xs px-2 py-0.5 rounded-full ${group.confidenceScore > 0.9 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                                    {(group.confidenceScore * 100).toFixed(0)}% Confidence
+                                </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                {/* Whitelist Button */}
+                                <button 
+                                    onClick={() => handleAddToExceptions(group)}
+                                    className="flex items-center text-xs font-medium text-slate-500 hover:text-blue-600 bg-white border border-slate-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                    <ShieldCheck size={14} className="mr-1.5"/>
+                                    Whitelist
+                                </button>
+                                
+                                {/* Compare / Resolve Button */}
+                                <button 
+                                    onClick={() => handleCompareGroup(group)}
+                                    className="flex items-center text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
+                                >
+                                    <Split size={14} className="mr-1.5" />
+                                    Review & Resolve
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            {/* Whitelist Button */}
-                            <button 
-                                onClick={() => handleAddToExceptions(group)}
-                                className="flex items-center text-xs font-medium text-slate-500 hover:text-blue-600 bg-white border border-slate-300 hover:border-blue-400 px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                                <ShieldCheck size={14} className="mr-1.5"/>
-                                Whitelist
-                            </button>
-                            
-                            {/* Compare / Resolve Button */}
-                            <button 
-                                onClick={() => handleCompareGroup(group)}
-                                className="flex items-center text-xs text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg transition-colors font-medium shadow-sm"
-                            >
-                                <Split size={14} className="mr-1.5" />
-                                Review & Resolve
-                            </button>
-                        </div>
-                    </div>
 
-                    {/* Preview Table (Simplified) */}
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead>
-                            <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/50">
-                                <th className="px-6 py-3 font-medium">Date (USA)</th>
-                                <th className="px-6 py-3 font-medium">Entity</th>
-                                <th className="px-6 py-3 font-medium">Account</th>
-                                <th className="px-6 py-3 font-medium">Memo</th>
-                                <th className="px-6 py-3 font-medium text-right">Amount</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {group.transactions.map((txn) => (
-                                <tr key={txn.id} className="hover:bg-slate-50 group transition-colors">
-                                <td className="px-6 py-3 text-slate-700">
-                                    {/* Mock US Format conversion */}
-                                    {new Date(txn.date).toLocaleDateString('en-US')}
-                                </td>
-                                <td className="px-6 py-3 text-slate-700 font-medium">{txn.entityName}</td>
-                                <td className="px-6 py-3 text-slate-500 text-xs">{txn.account || '-'}</td>
-                                <td className="px-6 py-3 text-slate-500 italic truncate max-w-xs">{txn.memo || '-'}</td>
-                                <td className="px-6 py-3 text-slate-800 font-mono text-right font-bold">
-                                    {txn.currency} {txn.amount.toFixed(2)}
-                                </td>
+                        {/* Preview Table (Simplified) */}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead>
+                                <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/50">
+                                    <th className="px-6 py-3 font-medium">Date (USA)</th>
+                                    <th className="px-6 py-3 font-medium">Entity</th>
+                                    <th className="px-6 py-3 font-medium">Account</th>
+                                    <th className="px-6 py-3 font-medium">Memo</th>
+                                    <th className="px-6 py-3 font-medium text-right">Amount</th>
                                 </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    </div>
-                ))
+                                </thead>
+                                <tbody>
+                                {group.transactions.map((txn) => (
+                                    <tr key={txn.id} className="hover:bg-slate-50 group transition-colors">
+                                    <td className="px-6 py-3 text-slate-700">
+                                        {/* Mock US Format conversion */}
+                                        {new Date(txn.date).toLocaleDateString('en-US')}
+                                    </td>
+                                    <td className="px-6 py-3 text-slate-700 font-medium">{txn.entityName}</td>
+                                    <td className="px-6 py-3 text-slate-500 text-xs">{txn.account || '-'}</td>
+                                    <td className="px-6 py-3 text-slate-500 italic truncate max-w-xs">{txn.memo || '-'}</td>
+                                    <td className="px-6 py-3 text-slate-800 font-mono text-right font-bold">
+                                        {txn.currency} {txn.amount.toFixed(2)}
+                                    </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        </div>
+                    );
+                })
             )}
             </div>
         </>
       )} 
+
+      {/* Bulk Action Bar (Floating) */}
+      {selectedIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-40 flex items-center space-x-6 animate-in slide-in-from-bottom-10 fade-in duration-300 border border-slate-700">
+              <div className="font-bold flex items-center border-r border-slate-700 pr-6">
+                  <span className="bg-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">{selectedIds.size}</span>
+                  Selected
+              </div>
+              <div className="flex items-center space-x-2">
+                  <button onClick={handleBulkDismiss} className="hover:text-red-400 transition-colors flex items-center font-medium px-2 py-1">
+                      <Ban size={16} className="mr-2"/> Dismiss All
+                  </button>
+                  <div className="w-px h-4 bg-slate-700 mx-2"></div>
+                  <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white transition-colors text-sm">
+                      Cancel
+                  </button>
+              </div>
+          </div>
+      )}
       
       {duplicates.length === 0 && !isScanning && (
           <div className="text-center py-20 bg-white rounded-xl border border-dashed border-slate-300">

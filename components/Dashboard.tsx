@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -16,6 +16,42 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onUpgrade }) => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [dismissOnboarding, setDismissOnboarding] = useState(false);
+  
+  // PWA Real Installation State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+      const handler = (e: any) => {
+          // Prevent the mini-infobar from appearing on mobile
+          e.preventDefault();
+          // Stash the event so it can be triggered later.
+          setDeferredPrompt(e);
+          // Update UI notify the user they can install the PWA
+          setShowInstallBanner(true);
+      };
+
+      window.addEventListener('beforeinstallprompt', handler);
+
+      return () => {
+          window.removeEventListener('beforeinstallprompt', handler);
+      };
+  }, []);
+
+  const handleInstallPwa = async () => {
+      if (!deferredPrompt) return;
+      
+      // Show the install prompt
+      deferredPrompt.prompt();
+      
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to the install prompt: ${outcome}`);
+      
+      // We've used the prompt, and can't use it again, discard it
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+  };
 
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
@@ -82,6 +118,38 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
         </h2>
         <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
+
+      {/* PWA / Mobile App Banner (Live) */}
+      {showInstallBanner && (
+          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
+              {/* Abstract Decorator */}
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
+              
+              <div className="flex items-center gap-4 z-10 mb-4 sm:mb-0">
+                  <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                      <Smartphone size={24} className="text-blue-300"/>
+                  </div>
+                  <div>
+                      <h3 className="font-bold">Install Dup-Detect</h3>
+                      <p className="text-sm text-slate-300">Add to home screen for quick access and offline mode.</p>
+                  </div>
+              </div>
+              <div className="flex items-center gap-3 z-10 w-full sm:w-auto">
+                  <button 
+                      onClick={handleInstallPwa}
+                      className="flex-1 sm:flex-none px-4 py-2 bg-white text-slate-900 hover:bg-blue-50 font-bold rounded-lg text-sm flex items-center justify-center transition-colors"
+                  >
+                      <Download size={16} className="mr-2"/> Install
+                  </button>
+                  <button 
+                      onClick={() => setShowInstallBanner(false)}
+                      className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                      <X size={20} />
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* Onboarding / Setup Progress Widget */}
       {!dismissOnboarding && progressPercentage < 100 && (
