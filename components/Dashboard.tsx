@@ -21,8 +21,14 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [showIosBanner, setShowIosBanner] = useState(false);
+  
+  // Basic mobile check for "Manual Install" button visibility
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+      // Check if mobile
+      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+
       // 1. Android / Desktop Chrome Handler
       const handler = (e: any) => {
           e.preventDefault();
@@ -31,7 +37,7 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
       };
       window.addEventListener('beforeinstallprompt', handler);
 
-      // 2. iOS Detection
+      // 2. iOS Detection / Auto-Banner logic
       // Check if user is on iOS and NOT in standalone mode (already installed)
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
@@ -46,18 +52,28 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   }, []);
 
   const handleInstallPwa = async () => {
-      if (!deferredPrompt) return;
-      
-      // Show the install prompt
-      deferredPrompt.prompt();
-      
-      // Wait for the user to respond to the prompt
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to the install prompt: ${outcome}`);
-      
-      // We've used the prompt, and can't use it again, discard it
-      setDeferredPrompt(null);
-      setShowInstallBanner(false);
+      if (deferredPrompt) {
+          // Show the install prompt
+          deferredPrompt.prompt();
+          
+          // Wait for the user to respond to the prompt
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`User response to the install prompt: ${outcome}`);
+          
+          // We've used the prompt, and can't use it again, discard it
+          setDeferredPrompt(null);
+          setShowInstallBanner(false);
+      } else {
+          // Fallback: If no deferred prompt (e.g. iOS or prompt missed), force show instructions
+          // Try to detect platform again to show right instructions
+          const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          if(isIos) {
+              setShowIosBanner(true);
+          } else {
+              // Generic or Android without prompt
+              alert("To install this app:\n\n1. Tap your browser's menu (⋮ or Share)\n2. Select 'Add to Home Screen' or 'Install App'");
+          }
+      }
   };
 
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
@@ -110,23 +126,36 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
 
   return (
     <div className="space-y-6 relative">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
-            Dashboard
-            {(user.isQuickBooksConnected || user.isXeroConnected) && user.companyName && (
-                <>
-                    <span className="text-slate-300 font-light hidden sm:inline">/</span>
-                    <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
-                        <Building size={18} className="mr-2 opacity-75" />
-                        {user.companyName}
-                    </span>
-                </>
-            )}
-        </h2>
-        <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
+                Dashboard
+                {(user.isQuickBooksConnected || user.isXeroConnected) && user.companyName && (
+                    <>
+                        <span className="text-slate-300 font-light hidden sm:inline">/</span>
+                        <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
+                            <Building size={18} className="mr-2 opacity-75" />
+                            {user.companyName}
+                        </span>
+                    </>
+                )}
+            </h2>
+            <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>!</p>
+        </div>
+
+        {/* Manual Install Button (Visible mainly on mobile if not standalone) */}
+        {isMobile && !window.matchMedia('(display-mode: standalone)').matches && (
+            <button 
+                onClick={handleInstallPwa}
+                className="flex items-center space-x-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:bg-slate-800 transition-colors self-start sm:self-auto"
+            >
+                <Download size={16} />
+                <span>Install App</span>
+            </button>
+        )}
       </div>
 
-      {/* PWA Banner - ANDROID */}
+      {/* PWA Banner - ANDROID/Desktop (Automatic) */}
       {showInstallBanner && (
           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
               <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
