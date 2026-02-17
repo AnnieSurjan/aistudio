@@ -9,7 +9,7 @@ import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
-import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry } from './types';
+import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, DuplicateGroup } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
 import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
@@ -59,6 +59,9 @@ const App: React.FC = () => {
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
 
+  // Scan History State - Lifted from MOCK_SCAN_HISTORY to be dynamic
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
+
   const [user, setUser] = useState<IUserProfile>(() => {
       const savedUser = localStorage.getItem('dupdetect_user');
       return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
@@ -85,6 +88,17 @@ const App: React.FC = () => {
           type
       };
       setAuditLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleScanComplete = (results: DuplicateGroup[]) => {
+      const newScan: ScanResult = {
+          id: `SC-${Date.now().toString().slice(-4)}`,
+          date: new Date().toISOString().split('T')[0],
+          duplicatesFound: results.length,
+          status: 'Completed'
+      };
+      // Add to history state so Dashboard and Calendar update instantly
+      setScanHistory(prev => [newScan, ...prev]);
   };
 
   useEffect(() => {
@@ -300,7 +314,7 @@ const App: React.FC = () => {
       >
         {activeTab === 'dashboard' && (
             <Dashboard 
-                scanHistory={MOCK_SCAN_HISTORY} 
+                scanHistory={scanHistory} 
                 user={user}
                 onConnectQuickBooks={handleConnectQuickBooks}
                 onConnectXero={handleConnectXero}
@@ -314,9 +328,10 @@ const App: React.FC = () => {
                 onExport={handleExport} 
                 user={user}
                 onAddAuditLog={handleAddAuditLog}
+                onScanComplete={handleScanComplete}
             />
         )}
-        {activeTab === 'history' && <CalendarView history={MOCK_SCAN_HISTORY} />}
+        {activeTab === 'history' && <CalendarView history={scanHistory} />}
         
         {activeTab === 'users' && (
              <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm mt-4">
