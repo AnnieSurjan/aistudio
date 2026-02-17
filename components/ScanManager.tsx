@@ -133,12 +133,10 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
 
       try {
         const fetchPromises: Promise<{ transactions: Transaction[]; source: string; companyName: string }>[] = [];
-        const token = localStorage.getItem('auth_token');
-        const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
         if (isQBConnected) {
           fetchPromises.push(
-            fetch(`${PRODUCTION_BACKEND_URL}/api/quickbooks/scan`, { headers: authHeaders })
+            fetch(`${PRODUCTION_BACKEND_URL}/api/quickbooks/scan`, { credentials: 'include' })
               .then(async (res) => {
                 if (!res.ok) {
                   const err = await res.json().catch(() => ({}));
@@ -151,7 +149,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         }
         if (isXeroConnected) {
           fetchPromises.push(
-            fetch(`${PRODUCTION_BACKEND_URL}/api/xero/scan`, { headers: authHeaders })
+            fetch(`${PRODUCTION_BACKEND_URL}/api/xero/scan`, { credentials: 'include' })
               .then(async (res) => {
                 if (!res.ok) {
                   const err = await res.json().catch(() => ({}));

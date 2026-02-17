@@ -51,10 +51,8 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   useEffect(() => {
     const fetchInsights = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) { setInsightsLoading(false); return; }
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/insights`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
         });
         if (response.ok) {
           const data = await response.json();

@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
 const { sendVerificationEmail } = require('../lib/resend');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, verifyToken, setAuthCookie, clearAuthCookie } = require('../middleware/auth');
 
 // In-memory verification code store
 // Key: email, Value: { code, hashedPassword, name, companyName, createdAt }
@@ -145,13 +145,13 @@ router.post('/verify-email', async (req, res) => {
       companyName: pending.companyName,
     };
     const token = generateToken(verifiedUser);
+    setAuthCookie(res, token);
 
     console.log(`[Registration] User verified: ${email}, ID: ${userId}`);
 
     res.json({
       message: 'Email verified successfully',
       user: verifiedUser,
-      token,
     });
   } catch (error) {
     console.error('[Registration] Verify error:', error);
@@ -251,9 +251,10 @@ router.post('/login', async (req, res) => {
     }
 
     const token = generateToken(user);
+    setAuthCookie(res, token);
 
     console.log(`[Login] Successful login: ${email}`);
-    res.json({ message: 'Login successful', user, token });
+    res.json({ message: 'Login successful', user });
   } catch (error) {
     console.error('[Login] Error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -263,18 +264,16 @@ router.post('/login', async (req, res) => {
 // GET /auth/me - Restore session from JWT token
 router.get('/me', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = req.cookies?.auth_token
+      || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+
+    if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
-    const jwt = require('jsonwebtoken');
-    const JWT_SECRET = process.env.JWT_SECRET || 'dup-detect-dev-secret-change-in-production';
-
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      decoded = verifyToken(token);
     } catch (err) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -322,6 +321,12 @@ router.get('/me', async (req, res) => {
     console.error('[Auth/me] Error:', error);
     res.status(500).json({ error: 'Failed to restore session' });
   }
+});
+
+// POST /auth/logout - Clear auth cookie
+router.post('/logout', (req, res) => {
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;

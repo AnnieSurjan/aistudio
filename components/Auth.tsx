@@ -19,6 +19,7 @@ async function callBackend(path: string, body: object): Promise<{ ok: boolean; d
       const res = await fetch(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(20000),
       });
@@ -83,7 +84,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
       setIsLoading(false);
 
       if (ok && data.user) {
-        if (data.token) localStorage.setItem('auth_token', data.token);
+        // Token is now set as httpOnly cookie by the server
         onLogin(data.user);
       } else {
         setErrorMsg(data.error || 'Login failed');
@@ -118,7 +119,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
     setIsLoading(false);
 
     if (ok && data.user) {
-      if (data.token) localStorage.setItem('auth_token', data.token);
+      // Token is now set as httpOnly cookie by the server
       onLogin(data.user);
     } else {
       setErrorMsg(data.error || 'Verification failed');

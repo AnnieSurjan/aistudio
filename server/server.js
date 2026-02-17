@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
@@ -49,6 +51,7 @@ app.use(
 // Paddle webhook needs raw body for signature verification - must be before express.json()
 app.use('/api/paddle/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
+app.use(cookieParser());
 
 // --- Request logging ---
 app.use((req, res, next) => {
@@ -73,7 +76,28 @@ const cronRouter = require('./routes/cron');
 const paddleRouter = require('./routes/paddle');
 const chatRouter = require('./routes/chat');
 
+// --- Rate limiting for auth endpoints ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per window per IP
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const sessionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute per IP
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Public routes (no auth required)
+app.use('/auth/login', authLimiter);
+app.use('/auth/register', authLimiter);
+app.use('/auth/verify-email', authLimiter);
+app.use('/auth/me', sessionLimiter);
 app.use('/auth', authRouter);
 app.use('/auth', xeroAuthRouter);
 app.use('/auth', registrationRouter);

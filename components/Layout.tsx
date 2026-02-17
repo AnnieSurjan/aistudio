@@ -43,10 +43,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) { setNotifications(FALLBACK_NOTIFICATIONS); return; }
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
         });
         if (response.ok) {
           const data = await response.json();
@@ -77,27 +75,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, user
   const markAllRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     try {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-all-read`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-      }
+      await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-all-read`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      });
     } catch { /* silent */ }
   };
 
   const handleNotificationClick = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
     try {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-read`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: id }),
-        });
-      }
+      await fetch(`${PRODUCTION_BACKEND_URL}/api/notifications/mark-read`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: id }),
+      });
     } catch { /* silent */ }
   };
 

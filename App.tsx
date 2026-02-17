@@ -21,11 +21,6 @@ const PRODUCTION_BACKEND_URL = window.location.origin;
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
 
-const getAuthHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem('auth_token');
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
-
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -73,39 +68,10 @@ const App: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const status = params.get('status');
 
-      // Handle OAuth redirects - only trust if user has a valid JWT session
-      const existingToken = localStorage.getItem('auth_token');
-      if (status === 'success' && existingToken) {
-        setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
-        setIsAuthenticated(true);
-        setCurrentView('app');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setIsRestoringSession(false);
-        return;
-      }
-      if (status === 'xero_success' && existingToken) {
-        setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
-        setIsAuthenticated(true);
-        setCurrentView('app');
-        window.history.replaceState({}, document.title, window.location.pathname);
-        setIsRestoringSession(false);
-        return;
-      }
-      // If OAuth redirect but no token, clean URL and fall through to login
-      if (status) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      // Try to restore session from JWT
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setIsRestoringSession(false);
-        return;
-      }
-
+      // Try to restore session from httpOnly cookie (server validates)
       try {
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` },
+          credentials: 'include',
         });
         if (response.ok) {
           const data = await response.json();
@@ -120,13 +86,23 @@ const App: React.FC = () => {
           }));
           setIsAuthenticated(true);
           setCurrentView('app');
+
+          // Handle OAuth redirects after confirming valid session
+          if (status === 'success') {
+            setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
+          } else if (status === 'xero_success') {
+            setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
+          }
+
           fetchSubscriptionStatus();
-        } else {
-          // Token invalid/expired - clear it
-          localStorage.removeItem('auth_token');
         }
       } catch (err) {
         console.log('[Session] Could not restore session:', err);
+      }
+
+      // Clean OAuth redirect params from URL
+      if (status) {
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
       setIsRestoringSession(false);
     };
@@ -175,8 +151,13 @@ const App: React.FC = () => {
       alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+  const handleLogout = async () => {
+    try {
+      await fetch(`${PRODUCTION_BACKEND_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch { /* silent - clear state regardless */ }
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
@@ -199,7 +180,8 @@ const App: React.FC = () => {
       try {
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
         });
 
         if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
@@ -224,7 +206,8 @@ const App: React.FC = () => {
       try {
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
         });
 
         if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
@@ -296,10 +279,8 @@ const App: React.FC = () => {
 
   const fetchSubscriptionStatus = async () => {
       try {
-          const token = localStorage.getItem('auth_token');
-          if (!token) return;
           const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/paddle/subscription`, {
-              headers: { 'Authorization': `Bearer ${token}` },
+              credentials: 'include',
           });
           if (response.ok) {
               const data = await response.json();

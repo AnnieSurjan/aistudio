@@ -2,11 +2,10 @@ import { ChatMessage } from "../types";
 
 const BACKEND_URL = window.location.origin;
 
-function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('auth_token');
+function getAuthFetchInit(): RequestInit {
   return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
   };
 }
 
@@ -36,7 +35,7 @@ export const sendChatMessage = async (
 ): Promise<ChatResponse> => {
   const response = await fetch(`${BACKEND_URL}/api/chat/message`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    ...getAuthFetchInit(),
     body: JSON.stringify({ sessionId, message, source }),
   });
 
@@ -52,7 +51,7 @@ export const getChatSessions = async (
   source: 'assistant' | 'help_center' = 'assistant'
 ): Promise<ChatSession[]> => {
   const response = await fetch(`${BACKEND_URL}/api/chat/sessions?source=${source}`, {
-    headers: getAuthHeaders(),
+    ...getAuthFetchInit(),
   });
 
   if (!response.ok) {
@@ -68,7 +67,7 @@ export const getChatSessionMessages = async (
   sessionId: string
 ): Promise<{ session: ChatSession; messages: ChatMessage[] }> => {
   const response = await fetch(`${BACKEND_URL}/api/chat/sessions/${sessionId}`, {
-    headers: getAuthHeaders(),
+    ...getAuthFetchInit(),
   });
 
   if (!response.ok) {
@@ -82,7 +81,7 @@ export const getChatSessionMessages = async (
 export const deleteChatSession = async (sessionId: string): Promise<void> => {
   const response = await fetch(`${BACKEND_URL}/api/chat/sessions/${sessionId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(),
+    ...getAuthFetchInit(),
   });
 
   if (!response.ok) {
