@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download, Share } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download, Share, HelpCircle, MoreVertical, Compass, CheckSquare } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -20,14 +20,22 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   // PWA Real Installation State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const [showIosBanner, setShowIosBanner] = useState(false);
   
-  // Basic mobile check for "Manual Install" button visibility
+  // Controls the manual help modal
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  
+  // Platform detection
+  const [isIOS, setIsIOS] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
       // Check if mobile
-      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const mobileCheck = /iPhone|iPad|iPod|Android/i.test(userAgent);
+      setIsMobile(mobileCheck);
+      
+      const iosCheck = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+      setIsIOS(iosCheck);
 
       // 1. Android / Desktop Chrome Handler
       const handler = (e: any) => {
@@ -36,15 +44,6 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           setShowInstallBanner(true);
       };
       window.addEventListener('beforeinstallprompt', handler);
-
-      // 2. iOS Detection / Auto-Banner logic
-      // Check if user is on iOS and NOT in standalone mode (already installed)
-      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-
-      if (isIos && !isStandalone) {
-          setShowIosBanner(true);
-      }
 
       return () => {
           window.removeEventListener('beforeinstallprompt', handler);
@@ -64,15 +63,8 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
           setDeferredPrompt(null);
           setShowInstallBanner(false);
       } else {
-          // Fallback: If no deferred prompt (e.g. iOS or prompt missed), force show instructions
-          // Try to detect platform again to show right instructions
-          const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          if(isIos) {
-              setShowIosBanner(true);
-          } else {
-              // Generic or Android without prompt
-              alert("To install this app:\n\n1. Tap your browser's menu (⋮ or Share)\n2. Select 'Add to Home Screen' or 'Install App'");
-          }
+          // If no automatic prompt is available, show the help modal
+          setShowInstallHelp(true);
       }
   };
 
@@ -182,28 +174,6 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                   >
                       <X size={20} />
                   </button>
-              </div>
-          </div>
-      )}
-
-      {/* PWA Banner - iOS (Manual Instructions) */}
-      {showIosBanner && (
-          <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col items-start text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-start gap-4 z-10 w-full">
-                  <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm shrink-0">
-                      <Share size={24} className="text-blue-300"/>
-                  </div>
-                  <div className="flex-1">
-                      <h3 className="font-bold flex items-center justify-between">
-                          Install on iOS
-                          <button onClick={() => setShowIosBanner(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
-                      </h3>
-                      <p className="text-sm text-slate-300 mt-1 mb-2">To install this app on your iPhone/iPad:</p>
-                      <ol className="text-xs text-slate-300 space-y-1 list-decimal ml-4">
-                          <li>Tap the <strong className="text-white">Share</strong> icon in your browser bar.</li>
-                          <li>Scroll down and tap <strong className="text-white">Add to Home Screen</strong>.</li>
-                      </ol>
-                  </div>
               </div>
           </div>
       )}
@@ -588,6 +558,86 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                    </div>
                </div>
            </div>
+        </div>
+      )}
+
+      {/* MANUAL INSTALL INSTRUCTIONS MODAL */}
+      {showInstallHelp && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95 duration-200">
+             <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full relative overflow-hidden">
+                 <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
+                     <h3 className="font-bold flex items-center">
+                         <HelpCircle size={18} className="mr-2 text-blue-400"/>
+                         How to Install
+                     </h3>
+                     <button onClick={() => setShowInstallHelp(false)} className="text-slate-400 hover:text-white">
+                         <X size={20}/>
+                     </button>
+                 </div>
+                 
+                 <div className="p-5 space-y-6">
+                     <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-xs text-yellow-800 leading-relaxed">
+                         <strong>Can't see the install button?</strong><br/>
+                         You might be in an in-app browser (e.g. Facebook, Gmail).
+                     </div>
+
+                     <div className="space-y-4">
+                         {isIOS ? (
+                             // iOS Instructions
+                             <div className="space-y-3">
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <Share size={20} className="text-blue-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         1. Tap the <strong>Share</strong> icon in the bottom bar.
+                                     </p>
+                                 </div>
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <CheckSquare size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         2. Scroll down and tap <strong>Add to Home Screen</strong>.
+                                     </p>
+                                 </div>
+                             </div>
+                         ) : (
+                             // Android Instructions
+                             <div className="space-y-3">
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <MoreVertical size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         1. Tap the <strong>Menu (3 dots)</strong> in the top right.
+                                     </p>
+                                 </div>
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <Download size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         2. Tap <strong>Install App</strong> or <strong>Add to Home Screen</strong>.
+                                     </p>
+                                 </div>
+                             </div>
+                         )}
+                     </div>
+
+                     <div className="pt-4 border-t border-slate-100">
+                         <p className="text-xs font-bold text-slate-500 uppercase mb-2">Still not working?</p>
+                         <p className="text-sm text-slate-700 flex items-center">
+                             <Compass size={16} className="mr-2 text-blue-500"/>
+                             Tap <strong>Menu (3 dots)</strong> &rarr; <strong>Open in Browser</strong> (Chrome/Safari).
+                         </p>
+                     </div>
+                 </div>
+                 
+                 <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
+                     <button onClick={() => setShowInstallHelp(false)} className="text-blue-600 text-sm font-medium">Close</button>
+                 </div>
+             </div>
         </div>
       )}
 
