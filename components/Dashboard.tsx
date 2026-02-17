@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download, Share } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 interface DashboardProps {
@@ -20,18 +20,25 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
   // PWA Real Installation State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [showIosBanner, setShowIosBanner] = useState(false);
 
   useEffect(() => {
+      // 1. Android / Desktop Chrome Handler
       const handler = (e: any) => {
-          // Prevent the mini-infobar from appearing on mobile
           e.preventDefault();
-          // Stash the event so it can be triggered later.
           setDeferredPrompt(e);
-          // Update UI notify the user they can install the PWA
           setShowInstallBanner(true);
       };
-
       window.addEventListener('beforeinstallprompt', handler);
+
+      // 2. iOS Detection
+      // Check if user is on iOS and NOT in standalone mode (already installed)
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+
+      if (isIos && !isStandalone) {
+          setShowIosBanner(true);
+      }
 
       return () => {
           window.removeEventListener('beforeinstallprompt', handler);
@@ -119,10 +126,9 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
         <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
       </div>
 
-      {/* PWA / Mobile App Banner (Live) */}
+      {/* PWA Banner - ANDROID */}
       {showInstallBanner && (
           <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
-              {/* Abstract Decorator */}
               <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
               
               <div className="flex items-center gap-4 z-10 mb-4 sm:mb-0">
@@ -147,6 +153,28 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                   >
                       <X size={20} />
                   </button>
+              </div>
+          </div>
+      )}
+
+      {/* PWA Banner - iOS (Manual Instructions) */}
+      {showIosBanner && (
+          <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col items-start text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start gap-4 z-10 w-full">
+                  <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm shrink-0">
+                      <Share size={24} className="text-blue-300"/>
+                  </div>
+                  <div className="flex-1">
+                      <h3 className="font-bold flex items-center justify-between">
+                          Install on iOS
+                          <button onClick={() => setShowIosBanner(false)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                      </h3>
+                      <p className="text-sm text-slate-300 mt-1 mb-2">To install this app on your iPhone/iPad:</p>
+                      <ol className="text-xs text-slate-300 space-y-1 list-decimal ml-4">
+                          <li>Tap the <strong className="text-white">Share</strong> icon in your browser bar.</li>
+                          <li>Scroll down and tap <strong className="text-white">Add to Home Screen</strong>.</li>
+                      </ol>
+                  </div>
               </div>
           </div>
       )}
