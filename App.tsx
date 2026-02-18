@@ -9,57 +9,37 @@ import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
+import TermsPage from './components/TermsPage';
+import PrivacyPage from './components/PrivacyPage';
+import RefundPage from './components/RefundPage';
 import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, DuplicateGroup } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
-import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
-type ViewState = 'landing' | 'auth' | 'app';
-
-// This is the target URL for your backend API.
-// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
-const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com'; 
+type ViewState = 'landing' | 'auth' | 'app' | 'terms' | 'privacy' | 'refund';
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
-    { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login from IP 192.168.1.1', type: 'info' },
-    { id: '2', time: '2023-11-09 09:15', user: 'System', action: 'Auto-Backup', details: 'Daily backup completed', type: 'info' },
+    { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login', type: 'info' },
 ];
 
 const DEFAULT_USER: IUserProfile = {
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
     role: UserRole.MANAGER, 
-    plan: 'Starter', // Default to starter
-    companyName: '', // Empty by default, will be populated upon connection
+    plan: 'Starter', 
+    companyName: '',
     isQuickBooksConnected: false,
-    isXeroConnected: false
+    isXeroConnected: false,
+    isTrial: true 
 };
 
 const App: React.FC = () => {
-  // Initialize state from localStorage if available
-  const [currentView, setCurrentView] = useState<ViewState>(() => {
-      return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
-  });
-  
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-      return localStorage.getItem('dupdetect_auth') === 'true';
-  });
-
+  const [currentView, setCurrentView] = useState<ViewState>(() => (localStorage.getItem('dupdetect_view') as ViewState) || 'landing');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('dupdetect_auth') === 'true');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
-  const [isConnectingQB, setIsConnectingQB] = useState(false);
-  const [isConnectingXero, setIsConnectingXero] = useState(false);
-  
-  // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
-
-  // Legal Modal Initial State (from URL)
-  const [initialLegalTab, setInitialLegalTab] = useState<'terms' | 'privacy' | null>(null);
-
-  // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
-
-  // Scan History State - Lifted from MOCK_SCAN_HISTORY to be dynamic
   const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
 
   const [user, setUser] = useState<IUserProfile>(() => {
@@ -67,12 +47,7 @@ const App: React.FC = () => {
       return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
   });
 
-  // Persist User changes
-  useEffect(() => {
-      localStorage.setItem('dupdetect_user', JSON.stringify(user));
-  }, [user]);
-
-  // Persist View/Auth changes
+  useEffect(() => { localStorage.setItem('dupdetect_user', JSON.stringify(user)); }, [user]);
   useEffect(() => {
       localStorage.setItem('dupdetect_view', currentView);
       localStorage.setItem('dupdetect_auth', String(isAuthenticated));
@@ -81,11 +56,8 @@ const App: React.FC = () => {
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
       const newLog: AuditLogEntry = {
           id: Date.now().toString(),
-          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: user.name,
-          action,
-          details,
-          type
+          time: new Date().toLocaleString(),
+          user: user.name, action, details, type
       };
       setAuditLogs(prev => [newLog, ...prev]);
   };
@@ -97,160 +69,34 @@ const App: React.FC = () => {
           duplicatesFound: results.length,
           status: 'Completed'
       };
-      // Add to history state so Dashboard and Calendar update instantly
       setScanHistory(prev => [newScan, ...prev]);
   };
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get('status');
-    const view = params.get('view');
-
-    // Handle Deep Link for Legal Pages
-    if (view === 'terms' || view === 'privacy') {
-        setInitialLegalTab(view);
-    }
-    
-    // Handle successful redirect from QuickBooks OAuth
-    if (status === 'success') {
-        // In a full production app, you would fetch the company info from your backend here.
-        // For now, we assume if the backend redirected with success, we are connected to the Sandbox.
-        setUser(prev => ({ 
-            ...prev, 
-            isQuickBooksConnected: true,
-            companyName: 'QuickBooks Sandbox' 
-        }));
-        
-        setIsAuthenticated(true); 
-        setCurrentView('app');    
-        handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
-        
-        // Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-
   const handleLogin = (data?: { name: string; email: string; companyName: string }) => {
-    // If login data is provided (from registration or login form), update the user state
     if (data) {
         setUser(prev => ({
             ...prev,
             name: data.name,
             email: data.email,
-            companyName: data.companyName || prev.companyName
+            companyName: data.companyName || prev.companyName,
+            isTrial: true 
         }));
     }
-
     setIsAuthenticated(true);
     setCurrentView('app');
-    
-    // Add login log
-    const log: AuditLogEntry = {
-          id: Date.now().toString(),
-          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: data?.name || user.name,
-          action: 'Login',
-          details: 'User logged in successfully',
-          type: 'info'
-    };
-    setAuditLogs(prev => [log, ...prev]);
+    handleAddAuditLog('Login', 'User logged in successfully', 'info');
   };
   
-  const handleStartDemo = () => {
-      const demoUser = {
-          name: 'Demo User',
-          email: 'demo@dupdetect.com',
-          role: UserRole.ADMIN,
-          plan: 'Professional',
-          companyName: 'Demo Corp Ltd.',
-          isQuickBooksConnected: true,
-          isXeroConnected: true
-      } as IUserProfile;
-
-      setUser(demoUser);
-      setIsAuthenticated(true);
-      setCurrentView('app');
-      setActiveTab('scan'); // Go straight to the action
-      
-      handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
-      alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
-  };
-
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
+    setUser(DEFAULT_USER);
     localStorage.removeItem('dupdetect_auth');
     localStorage.removeItem('dupdetect_view');
-    // We keep the user object in storage so email field could be pre-filled, but reset connection status ideally.
-    // For now, let's reset to default to simulate full logout.
-    setUser(DEFAULT_USER);
     localStorage.removeItem('dupdetect_user');
   };
 
-  const handleConnectQuickBooks = async () => {
-      setIsConnectingQB(true);
-      
-      const currentFrontendUrl = window.location.origin; 
-      
-      try {
-        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
-        
-        // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
-        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-        });
-        
-        if (!response.ok) {
-             throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        if (data.url) {
-            // Redirect the user to the real QuickBooks OAuth page provided by the backend
-            window.location.href = data.url;
-        } else {
-            throw new Error("Invalid response from backend: No redirect URL found.");
-        }
-
-      } catch (error) {
-          console.error("Connection failed:", error);
-          alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
-          setIsConnectingQB(false);
-      }
-  };
-
-  const handleConnectXero = async () => {
-    setIsConnectingXero(true);
-    // Simulation of Xero OAuth flow
-    setTimeout(() => {
-        setIsConnectingXero(false);
-        setUser(prev => ({ 
-            ...prev, 
-            isXeroConnected: true,
-            // If we didn't have a company name from QB, use this one
-            companyName: prev.companyName || 'Xero Demo Org' 
-        }));
-        handleAddAuditLog('Connection', 'Xero Organization connected successfully', 'success');
-        alert("Xero connected successfully (Mock Mode)");
-    }, 2000);
-  };
-
-  const handleExport = () => {
-      const csvContent = "data:text/csv;charset=utf-8,ID,Date,Amount,Entity,Reason\nTXN-001,2023-10-25,1500.00,Acme Corp,Exact Match";
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", "duplicates.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      handleAddAuditLog('Export', 'Duplicate transactions exported to CSV', 'info');
-  };
-
-  // Payment Handlers
   const handleUpgradeClick = (plan: string, price: string) => {
       setSelectedPlan({ name: plan, price: price });
       setShowPaymentModal(true);
@@ -258,19 +104,21 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          // Update user plan
           setUser(prev => ({ 
               ...prev, 
-              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' 
+              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise',
+              isTrial: false 
           }));
           handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
           setShowPaymentModal(false);
-          // If we were on landing page, move to app or show success
-          if (currentView === 'landing') {
-              setCurrentView('auth'); // Or direct to app if already logged in logic existed
-          }
+          if (currentView === 'landing' || currentView === 'terms' || currentView === 'privacy' || currentView === 'refund') setCurrentView('auth');
       }
   };
+
+  // Full Page Legal Navigation
+  if (currentView === 'terms') return <TermsPage onBack={() => setCurrentView('landing')} />;
+  if (currentView === 'privacy') return <PrivacyPage onBack={() => setCurrentView('landing')} />;
+  if (currentView === 'refund') return <RefundPage onBack={() => setCurrentView('landing')} />;
 
   if (currentView === 'landing') {
     return (
@@ -279,15 +127,13 @@ const App: React.FC = () => {
             onGetStarted={() => setCurrentView('auth')} 
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
-            onStartDemo={handleStartDemo}
-            initialLegalTab={initialLegalTab}
+            onStartDemo={() => { handleLogin(); setActiveTab('scan'); }}
+            onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => setCurrentView(view)}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway 
-                planName={selectedPlan.name}
-                price={selectedPlan.price}
-                onClose={() => setShowPaymentModal(false)}
-                onSuccess={handlePaymentSuccess}
+                planName={selectedPlan.name} price={selectedPlan.price}
+                onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess}
             />
         )}
       </>
@@ -295,154 +141,47 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'auth') {
-    return (
-      <Auth 
-        onLogin={handleLogin} 
-        onBack={() => setCurrentView('landing')}
-      />
-    );
+    return <Auth onLogin={handleLogin} onBack={() => setCurrentView('landing')} />;
   }
 
   return (
     <div className="font-sans text-slate-900 bg-slate-50 min-h-screen">
       <Layout 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        user={user}
-        onLogout={handleLogout}
-        onShowHelp={() => setShowHelp(true)}
+        activeTab={activeTab} setActiveTab={setActiveTab} user={user}
+        onLogout={handleLogout} onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
             <Dashboard 
-                scanHistory={scanHistory} 
-                user={user}
-                onConnectQuickBooks={handleConnectQuickBooks}
-                onConnectXero={handleConnectXero}
-                isConnectingQB={isConnectingQB}
-                isConnectingXero={isConnectingXero}
+                scanHistory={scanHistory} user={user}
+                onConnectQuickBooks={() => {}} onConnectXero={() => {}}
+                isConnectingQB={false} isConnectingXero={false}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'scan' && (
             <ScanManager 
-                onExport={handleExport} 
-                user={user}
+                onExport={() => {}} user={user}
                 onAddAuditLog={handleAddAuditLog}
                 onScanComplete={handleScanComplete}
+                onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'history' && <CalendarView history={scanHistory} />}
-        
-        {activeTab === 'users' && (
-             <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm mt-4">
-                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                    <Users className="w-8 h-8" /> 
-                </div>
-                <h3 className="text-lg font-semibold text-slate-700">User Management</h3>
-                <p className="text-slate-500 max-w-sm mx-auto mt-2">Manage team roles, permissions, and audit logs. This feature is available in the Enterprise plan.</p>
-                <button 
-                    onClick={() => handleUpgradeClick('Enterprise', '149')}
-                    className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                >
-                    Upgrade to Enterprise
-                </button>
-             </div>
-        )}
-
-        {activeTab === 'audit' && (
-            <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Audit Logs</h2>
-                        <p className="text-slate-500">Track all sensitive actions performed within the application.</p>
-                    </div>
-                    <button className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
-                        <FileText size={16} className="mr-1"/> Export Logs
-                    </button>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Timestamp</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">User</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Action</th>
-                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Details</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {auditLogs.map((log, i) => (
-                                <tr key={i} className="hover:bg-slate-50">
-                                    <td className="px-6 py-3 text-slate-600 text-sm font-mono">{log.time}</td>
-                                    <td className="px-6 py-3 text-slate-800 text-sm font-medium">{log.user}</td>
-                                    <td className="px-6 py-3 text-sm">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            log.type === 'danger' ? 'bg-red-100 text-red-700' : 
-                                            log.type === 'warning' ? 'bg-orange-100 text-orange-700' :
-                                            log.type === 'success' ? 'bg-green-100 text-green-700' :
-                                            'bg-blue-100 text-blue-700'
-                                        }`}>
-                                            {log.action}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-3 text-slate-500 text-sm">{log.details}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {auditLogs.length === 0 && (
-                        <div className="p-8 text-center text-slate-500">No logs available.</div>
-                    )}
-                </div>
-            </div>
-        )}
-
         {activeTab === 'profile' && (
             <UserProfile 
-                user={user} 
-                onConnectQuickBooks={handleConnectQuickBooks}
-                onConnectXero={handleConnectXero}
-                isConnectingQB={isConnectingQB}
-                isConnectingXero={isConnectingXero}
-                onManagePlan={() => {
-                   if (user.plan === 'Starter') {
-                       handleUpgradeClick('Professional', '49');
-                   } else if (user.plan === 'Professional') {
-                       handleUpgradeClick('Enterprise', '149');
-                   } else {
-                       const portal = window.confirm("You are on the highest tier. Open Customer Billing Portal?");
-                       if(portal) handleAddAuditLog('Billing', 'User accessed billing portal', 'info');
-                   }
-                }}
+                user={user} onManagePlan={() => handleUpgradeClick('Professional', '49')}
+                onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => setCurrentView(view)}
             />
         )}
-        
-        {/* Help Center Component */}
-        <HelpCenter 
-            isOpen={showHelp} 
-            onClose={() => setShowHelp(false)} 
-        />
-
+        <HelpCenter isOpen={showHelp} onClose={() => setShowHelp(false)} />
       </Layout>
-      
-      {/* Global Payment Modal - can be triggered from anywhere */}
       {showPaymentModal && selectedPlan && (
         <PaymentGateway 
-            planName={selectedPlan.name}
-            price={selectedPlan.price}
-            onClose={() => setShowPaymentModal(false)}
-            onSuccess={handlePaymentSuccess}
+            planName={selectedPlan.name} price={selectedPlan.price}
+            onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess}
         />
       )}
-
       <ChatAssistant />
-      <button 
-        onClick={() => setShowHelp(true)}
-        className="fixed bottom-24 right-6 w-10 h-10 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 z-40 transition-colors border border-slate-700"
-        title="Help & Support"
-      >
-        <HelpCircle size={20} />
-      </button>
     </div>
   );
 };
