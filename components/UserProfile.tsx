@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile as IUserProfile, UserRole } from '../types';
-import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale } from 'lucide-react';
+import { CreditCard, Mail, Shield, Link, CheckCircle, RotateCw, UserPlus, Send, Users, MoreHorizontal, Clock, FileText, Scale, Key, Trash2 } from 'lucide-react';
 import LegalModal from './LegalModal';
 
 interface UserProfileProps {
@@ -14,13 +14,14 @@ interface UserProfileProps {
   onManagePlan?: () => void;
 }
 
-// Mock data for existing team members
-const MOCK_TEAM = [
+// Initial mock data
+const INITIAL_TEAM = [
   { id: 1, name: 'Sarah Finance', email: 'sarah@finance-pro.com', role: 'VIEWER', status: 'Active' },
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
 const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, onDisconnectQB, onDisconnectXero, isConnectingQB, isConnectingXero, onManagePlan }) => {
+  const [teamMembers, setTeamMembers] = useState(INITIAL_TEAM);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'success'>('idle');
@@ -28,6 +29,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
   // Legal Modal State
   const [showLegal, setShowLegal] = useState(false);
   const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms');
+
+  // Change Password State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Check if user has permission to invite (Admin or Manager)
   const canInvite = user.role === UserRole.ADMIN || user.role === UserRole.MANAGER;
@@ -38,8 +46,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
 
     setInviteStatus('sending');
     
-    // Simulate API call
+    // Simulate API call and update state
     setTimeout(() => {
+        const newUser = {
+            id: Date.now(),
+            name: inviteEmail.split('@')[0], // Generate a name from email for demo
+            email: inviteEmail,
+            role: inviteRole,
+            status: 'Pending'
+        };
+        
+        setTeamMembers(prev => [...prev, newUser]);
+        
         setInviteStatus('success');
         setInviteEmail('');
         // Reset status after 3 seconds
@@ -47,9 +65,34 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
     }, 1500);
   };
   
+  const handleRemoveUser = (id: number) => {
+      if (window.confirm("Are you sure you want to remove this user?")) {
+          setTeamMembers(prev => prev.filter(m => m.id !== id));
+      }
+  };
+
   const openLegal = (tab: 'terms' | 'privacy') => {
       setLegalTab(tab);
       setShowLegal(true);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newPassword !== confirmPassword) {
+          alert("New passwords do not match.");
+          return;
+      }
+      setIsChangingPassword(true);
+      
+      // Simulate API delay
+      setTimeout(() => {
+          setIsChangingPassword(false);
+          setShowPasswordModal(false);
+          setOldPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          alert("Password changed successfully.");
+      }, 1500);
   };
 
   return (
@@ -284,16 +327,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                                     <td className="px-4 py-3 text-right text-slate-400 disabled cursor-not-allowed"><MoreHorizontal size={16} className="ml-auto"/></td>
                                 </tr>
                                 
-                                {/* Mock Users */}
-                                {MOCK_TEAM.map(member => (
+                                {/* Dynamic Team Members */}
+                                {teamMembers.map(member => (
                                     <tr key={member.id} className="hover:bg-slate-50">
                                         <td className="px-4 py-3">
                                             <div className="flex items-center">
-                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs mr-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs mr-3 capitalize">
                                                     {member.name.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-slate-900">{member.name}</div>
+                                                    <div className="font-medium text-slate-900 capitalize">{member.name}</div>
                                                     <div className="text-xs text-slate-500">{member.email}</div>
                                                 </div>
                                             </div>
@@ -309,8 +352,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button className="text-slate-400 hover:text-slate-600">
-                                                <MoreHorizontal size={16} className="ml-auto"/>
+                                            <button 
+                                                onClick={() => handleRemoveUser(member.id)}
+                                                className="text-slate-400 hover:text-red-600 transition-colors"
+                                                title="Remove User"
+                                            >
+                                                <Trash2 size={16} className="ml-auto"/>
                                             </button>
                                         </td>
                                     </tr>
@@ -332,6 +379,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
         <p className="text-sm text-slate-500 mb-6">Dup-Detect performs daily secure backups. Review our legal terms regarding data handling below.</p>
         
         <div className="space-y-4">
+             <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                <span className="text-slate-700">Password</span>
+                <button 
+                    onClick={() => setShowPasswordModal(true)}
+                    className="flex items-center bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm transition-colors"
+                >
+                    <Key size={14} className="mr-1.5"/> Change Password
+                </button>
+            </div>
             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                 <span className="text-slate-700">Two-Factor Authentication</span>
                 <button className="bg-slate-200 text-slate-600 px-3 py-1 rounded text-sm hover:bg-slate-300">Enable</button>
@@ -354,6 +410,64 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
         </div>
       </div>
       
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-4">Change Password</h3>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                        <input 
+                            type="password" 
+                            required
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex justify-end space-x-3 pt-4">
+                         <button 
+                            type="button"
+                            onClick={() => setShowPasswordModal(false)}
+                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                         >
+                             Cancel
+                         </button>
+                         <button 
+                            type="submit"
+                            disabled={isChangingPassword}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-70"
+                         >
+                             {isChangingPassword ? 'Updating...' : 'Update Password'}
+                         </button>
+                    </div>
+                </form>
+           </div>
+        </div>
+      )}
+
       {/* Legal Modal */}
       <LegalModal 
         isOpen={showLegal}

@@ -10,20 +10,38 @@ import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
 import ErrorBoundary from './components/ErrorBoundary';
-import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry } from './types';
+import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, DuplicateGroup } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
 import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
 type ViewState = 'landing' | 'auth' | 'app';
 
-// Backend API URL - uses same origin since frontend and backend are served together
-const PRODUCTION_BACKEND_URL = window.location.origin;
+// This is the target URL for your backend API.
+// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
 
+const DEFAULT_USER: IUserProfile = {
+    name: 'Alex Accountant',
+    email: 'alex@finance-pro.com',
+    role: UserRole.MANAGER,
+    plan: 'Starter', // Default to starter
+    companyName: '', // Empty by default, will be populated upon connection
+    isQuickBooksConnected: false,
+    isXeroConnected: false
+};
+
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>('landing');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Initialize state from localStorage if available (UI state only, NOT auth tokens)
+  const [currentView, setCurrentView] = useState<ViewState>(() => {
+      return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+      return localStorage.getItem('dupdetect_auth') === 'true';
+  });
+
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
@@ -34,21 +52,30 @@ const App: React.FC = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
 
+  // Legal Modal Initial State (from URL)
+  const [initialLegalTab, setInitialLegalTab] = useState<'terms' | 'privacy' | null>(null);
+
   // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
 
-  // Scan History State (fetched from backend)
+  // Scan History State - Lifted from MOCK_SCAN_HISTORY to be dynamic
   const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
 
-  const [user, setUser] = useState<IUserProfile>({
-    name: 'Alex Accountant',
-    email: 'alex@finance-pro.com',
-    role: UserRole.MANAGER,
-    plan: 'Starter',
-    companyName: '',
-    isQuickBooksConnected: false,
-    isXeroConnected: false
+  const [user, setUser] = useState<IUserProfile>(() => {
+      const savedUser = localStorage.getItem('dupdetect_user');
+      return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
   });
+
+  // Persist User changes
+  useEffect(() => {
+      localStorage.setItem('dupdetect_user', JSON.stringify(user));
+  }, [user]);
+
+  // Persist View/Auth changes
+  useEffect(() => {
+      localStorage.setItem('dupdetect_view', currentView);
+      localStorage.setItem('dupdetect_auth', String(isAuthenticated));
+  }, [currentView, isAuthenticated]);
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
       const newLog: AuditLogEntry = {
@@ -62,11 +89,28 @@ const App: React.FC = () => {
       setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  const handleScanComplete = (results: DuplicateGroup[]) => {
+      const newScan: ScanResult = {
+          id: `SC-${Date.now().toString().slice(-4)}`,
+          date: new Date().toISOString().split('T')[0],
+          duplicatesFound: results.length,
+          status: 'Completed'
+      };
+      // Add to history state so Dashboard and Calendar update instantly
+      setScanHistory(prev => [newScan, ...prev]);
+  };
+
   // Session restoration: check JWT on mount
   useEffect(() => {
     const restoreSession = async () => {
       const params = new URLSearchParams(window.location.search);
       const status = params.get('status');
+      const view = params.get('view');
+
+      // Handle Deep Link for Legal Pages
+      if (view === 'terms' || view === 'privacy') {
+          setInitialLegalTab(view);
+      }
 
       // Try to restore session from httpOnly cookie (server validates)
       try {
@@ -90,6 +134,7 @@ const App: React.FC = () => {
           // Handle OAuth redirects after confirming valid session
           if (status === 'success') {
             setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
+            handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
           } else if (status === 'xero_success') {
             setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
           }
@@ -110,21 +155,25 @@ const App: React.FC = () => {
     restoreSession();
   }, []);
 
-  const handleLogin = (loginUser?: { name: string; email: string; companyName: string }) => {
-    if (loginUser) {
-      setUser(prev => ({
-        ...prev,
-        name: loginUser.name || prev.name,
-        email: loginUser.email || prev.email,
-        companyName: loginUser.companyName || prev.companyName,
-      }));
+  const handleLogin = (data?: { name: string; email: string; companyName: string }) => {
+    // If login data is provided (from registration or login form), update the user state
+    if (data) {
+        setUser(prev => ({
+            ...prev,
+            name: data.name,
+            email: data.email,
+            companyName: data.companyName || prev.companyName
+        }));
     }
+
     setIsAuthenticated(true);
     setCurrentView('app');
+
+    // Add login log
     const log: AuditLogEntry = {
           id: Date.now().toString(),
           time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: loginUser?.name || 'User',
+          user: data?.name || user.name,
           action: 'Login',
           details: 'User logged in successfully',
           type: 'info'
@@ -134,7 +183,7 @@ const App: React.FC = () => {
   };
 
   const handleStartDemo = () => {
-      setUser({
+      const demoUser = {
           name: 'Demo User',
           email: 'demo@dupdetect.com',
           role: UserRole.ADMIN,
@@ -142,7 +191,9 @@ const App: React.FC = () => {
           companyName: 'Demo Corp Ltd.',
           isQuickBooksConnected: true,
           isXeroConnected: true
-      });
+      } as IUserProfile;
+
+      setUser(demoUser);
       setIsAuthenticated(true);
       setCurrentView('app');
       setActiveTab('scan');
@@ -161,6 +212,12 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     setCurrentView('landing');
     setActiveTab('dashboard');
+    localStorage.removeItem('dupdetect_auth');
+    localStorage.removeItem('dupdetect_view');
+    // We keep the user object in storage so email field could be pre-filled, but reset connection status ideally.
+    // For now, let's reset to default to simulate full logout.
+    setUser(DEFAULT_USER);
+    localStorage.removeItem('dupdetect_user');
   };
 
   const handleDisconnectQB = () => {
@@ -178,6 +235,9 @@ const App: React.FC = () => {
       const currentFrontendUrl = window.location.origin;
 
       try {
+        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
+
+        // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
@@ -313,6 +373,7 @@ const App: React.FC = () => {
             onLogin={() => setCurrentView('auth')}
             onUpgrade={handleUpgradeClick}
             onStartDemo={handleStartDemo}
+            initialLegalTab={initialLegalTab}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway
@@ -320,7 +381,6 @@ const App: React.FC = () => {
                 price={selectedPlan.price}
                 onClose={() => setShowPaymentModal(false)}
                 onSuccess={handlePaymentSuccess}
-                userEmail={user.email}
             />
         )}
       </>
@@ -362,6 +422,7 @@ const App: React.FC = () => {
                 onExport={handleExport}
                 user={user}
                 onAddAuditLog={handleAddAuditLog}
+                onScanComplete={handleScanComplete}
             />
         )}
         {activeTab === 'history' && <CalendarView history={scanHistory} />}

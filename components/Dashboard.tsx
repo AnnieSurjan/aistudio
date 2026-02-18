@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Area, Legend } from 'recharts';
-import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList } from 'lucide-react';
+import { ArrowUpRight, CheckCircle, AlertTriangle, Activity, Link, RotateCw, Globe, Building, DollarSign, TrendingUp, X, Zap, Shield, Check, Star, ChevronRight, LayoutList, Smartphone, Download, Share, HelpCircle, MoreVertical, Compass, CheckSquare } from 'lucide-react';
 import { ScanResult, UserProfile } from '../types';
 
 const PRODUCTION_BACKEND_URL = window.location.origin;
@@ -66,6 +66,57 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
     fetchInsights();
   }, []);
 
+  // PWA Real Installation State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  // Controls the manual help modal
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  // Platform detection
+  const [isIOS, setIsIOS] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+      // Check if mobile
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const mobileCheck = /iPhone|iPad|iPod|Android/i.test(userAgent);
+      setIsMobile(mobileCheck);
+
+      const iosCheck = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
+      setIsIOS(iosCheck);
+
+      // 1. Android / Desktop Chrome Handler
+      const handler = (e: any) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+          setShowInstallBanner(true);
+      };
+      window.addEventListener('beforeinstallprompt', handler);
+
+      return () => {
+          window.removeEventListener('beforeinstallprompt', handler);
+      };
+  }, []);
+
+  const handleInstallPwa = async () => {
+      if (deferredPrompt) {
+          // Show the install prompt
+          deferredPrompt.prompt();
+
+          // Wait for the user to respond to the prompt
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`User response to the install prompt: ${outcome}`);
+
+          // We've used the prompt, and can't use it again, discard it
+          setDeferredPrompt(null);
+          setShowInstallBanner(false);
+      } else {
+          // If no automatic prompt is available, show the help modal
+          setShowInstallHelp(true);
+      }
+  };
+
   const data = scanHistory.slice(0, 7).reverse().map(s => ({
     name: s.date.slice(5),
     duplicates: s.duplicatesFound
@@ -109,21 +160,65 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
 
   return (
     <div className="space-y-6 relative">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
-            Dashboard
-            {(user.isQuickBooksConnected || user.isXeroConnected) && user.companyName && (
-                <>
-                    <span className="text-slate-300 font-light hidden sm:inline">/</span>
-                    <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
-                        <Building size={18} className="mr-2 opacity-75" />
-                        {user.companyName}
-                    </span>
-                </>
-            )}
-        </h2>
-        <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>! Here is your duplicate detection summary.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center flex-wrap gap-3">
+                Dashboard
+                {(user.isQuickBooksConnected || user.isXeroConnected) && user.companyName && (
+                    <>
+                        <span className="text-slate-300 font-light hidden sm:inline">/</span>
+                        <span className="flex items-center text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-lg border border-blue-100 font-medium animate-in fade-in slide-in-from-left-2">
+                            <Building size={18} className="mr-2 opacity-75" />
+                            {user.companyName}
+                        </span>
+                    </>
+                )}
+            </h2>
+            <p className="text-slate-500 mt-2">Welcome back, <span className="font-semibold text-slate-700">{user.name}</span>!</p>
+        </div>
+
+        {/* Manual Install Button (Visible mainly on mobile if not standalone) */}
+        {isMobile && !window.matchMedia('(display-mode: standalone)').matches && (
+            <button 
+                onClick={handleInstallPwa}
+                className="flex items-center space-x-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md hover:bg-slate-800 transition-colors self-start sm:self-auto"
+            >
+                <Download size={16} />
+                <span>Install App</span>
+            </button>
+        )}
       </div>
+
+      {/* PWA Banner - ANDROID/Desktop (Automatic) */}
+      {showInstallBanner && (
+          <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-xl shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between text-white relative overflow-hidden mb-6 animate-in fade-in slide-in-from-top-2">
+              <div className="absolute -right-10 -top-10 w-40 h-40 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
+              
+              <div className="flex items-center gap-4 z-10 mb-4 sm:mb-0">
+                  <div className="bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                      <Smartphone size={24} className="text-blue-300"/>
+                  </div>
+                  <div>
+                      <h3 className="font-bold">Install Dup-Detect</h3>
+                      <p className="text-sm text-slate-300">Add to home screen for quick access and offline mode.</p>
+                  </div>
+              </div>
+              <div className="flex items-center gap-3 z-10 w-full sm:w-auto">
+                  <button 
+                      onClick={handleInstallPwa}
+                      className="flex-1 sm:flex-none px-4 py-2 bg-white text-slate-900 hover:bg-blue-50 font-bold rounded-lg text-sm flex items-center justify-center transition-colors"
+                  >
+                      <Download size={16} className="mr-2"/> Install
+                  </button>
+                  <button 
+                      onClick={() => setShowInstallBanner(false)}
+                      className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                  >
+                      <X size={20} />
+                  </button>
+              </div>
+          </div>
+      )}
 
       {/* Onboarding / Setup Progress Widget */}
       {!dismissOnboarding && progressPercentage < 100 && (
@@ -505,6 +600,86 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                    </div>
                </div>
            </div>
+        </div>
+      )}
+
+      {/* MANUAL INSTALL INSTRUCTIONS MODAL */}
+      {showInstallHelp && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95 duration-200">
+             <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full relative overflow-hidden">
+                 <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
+                     <h3 className="font-bold flex items-center">
+                         <HelpCircle size={18} className="mr-2 text-blue-400"/>
+                         How to Install
+                     </h3>
+                     <button onClick={() => setShowInstallHelp(false)} className="text-slate-400 hover:text-white">
+                         <X size={20}/>
+                     </button>
+                 </div>
+                 
+                 <div className="p-5 space-y-6">
+                     <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-xs text-yellow-800 leading-relaxed">
+                         <strong>Can't see the install button?</strong><br/>
+                         You might be in an in-app browser (e.g. Facebook, Gmail).
+                     </div>
+
+                     <div className="space-y-4">
+                         {isIOS ? (
+                             // iOS Instructions
+                             <div className="space-y-3">
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <Share size={20} className="text-blue-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         1. Tap the <strong>Share</strong> icon in the bottom bar.
+                                     </p>
+                                 </div>
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <CheckSquare size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         2. Scroll down and tap <strong>Add to Home Screen</strong>.
+                                     </p>
+                                 </div>
+                             </div>
+                         ) : (
+                             // Android Instructions
+                             <div className="space-y-3">
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <MoreVertical size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         1. Tap the <strong>Menu (3 dots)</strong> in the top right.
+                                     </p>
+                                 </div>
+                                 <div className="flex items-start gap-3">
+                                     <div className="bg-slate-100 p-2 rounded shrink-0">
+                                         <Download size={20} className="text-slate-600"/>
+                                     </div>
+                                     <p className="text-sm text-slate-600">
+                                         2. Tap <strong>Install App</strong> or <strong>Add to Home Screen</strong>.
+                                     </p>
+                                 </div>
+                             </div>
+                         )}
+                     </div>
+
+                     <div className="pt-4 border-t border-slate-100">
+                         <p className="text-xs font-bold text-slate-500 uppercase mb-2">Still not working?</p>
+                         <p className="text-sm text-slate-700 flex items-center">
+                             <Compass size={16} className="mr-2 text-blue-500"/>
+                             Tap <strong>Menu (3 dots)</strong> &rarr; <strong>Open in Browser</strong> (Chrome/Safari).
+                         </p>
+                     </div>
+                 </div>
+                 
+                 <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
+                     <button onClick={() => setShowInstallHelp(false)} className="text-blue-600 text-sm font-medium">Close</button>
+                 </div>
+             </div>
         </div>
       )}
 

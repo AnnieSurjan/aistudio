@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DuplicateGroup, Transaction, UserProfile, ExclusionRule } from '../types';
 import { detectDuplicates, MOCK_TRANSACTIONS } from '../services/mockData';
-import { Play, RotateCcw, Check, AlertCircle, Download, Undo, Settings, Mail, FileText, ChevronDown, Wifi, WifiOff } from 'lucide-react';
+import { Play, RotateCcw, Check, AlertCircle, Download, Undo, Settings, Mail, FileText, ChevronDown, Wifi, WifiOff, Ban } from 'lucide-react';
 
 import ScanTerminal from './scan/ScanTerminal';
 import ReviewModal from './scan/ReviewModal';
@@ -17,15 +17,21 @@ const PRODUCTION_BACKEND_URL = window.location.origin;
 interface ScanManagerProps {
   onExport: () => void;
   onAddAuditLog: (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success') => void;
+  onScanComplete?: (results: DuplicateGroup[]) => void;
   user: UserProfile;
 }
 
-const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user }) => {
+const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, onScanComplete, user }) => {
   // Scan state
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<DuplicateGroup | null>(null);
+
+  // Bulk Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Scanning Visuals
   const [scanLog, setScanLog] = useState<string[]>([]);
   const [scanSource, setScanSource] = useState<'live' | 'mock' | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -65,6 +71,21 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
   const [emailRecipients, setEmailRecipients] = useState('client@example.com');
   const [emailFrequency, setEmailFrequency] = useState('weekly');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // Only if no modal is open
+        if (showReviewModal || showRulesModal || showEmailModal) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+            // Logic to select next could be added here for advanced power users
+            // For now, we just prevent default scrolling if we were implementing row focus
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showReviewModal, showRulesModal, showEmailModal]);
 
   useEffect(() => {
     return () => { if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current); };
@@ -111,11 +132,11 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     setIsScanning(true);
     setProgress(0);
     setDuplicates([]);
-    setHistory([]);
-    setScanLog(['Initializing AI engine...']);
+    setSelectedIds(new Set());
+    setHistory([]); // Clear history on new scan
+    setScanLog(['Initializing AI engine...', 'Fetching recent transactions from QuickBooks...', 'Fetching recent transactions from Xero...']);
     setShowUndoToast(false);
-    setScanError(null);
-    setLiveSources([]);
+    onAddAuditLog('Scan Run', 'Manual duplicate scan initiated', 'info');
 
     const isQBConnected = user.isQuickBooksConnected;
     const isXeroConnected = user.isXeroConnected;
@@ -188,6 +209,8 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
         } else {
           onAddAuditLog('Scan Completed', `${summaryMsg} No duplicates found in ${allTransactions.length} transactions.`, 'success');
         }
+
+        onScanComplete?.(detected);
       } catch (error) {
         console.error('[Scan] API error:', error);
         setScanLog(prev => [...prev, `> ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`]);
@@ -215,6 +238,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             } else {
               onAddAuditLog('Scan Completed', 'Demo scan finished. No duplicates found.', 'info');
             }
+            onScanComplete?.(detected);
             return 100;
           }
           if (step % 4 === 0) {
@@ -296,6 +320,38 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
     onAddAuditLog('Undo', `Restored group ${groupToRestore.id} from history.`, 'warning');
     setShowUndoToast(false);
     if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+  };
+
+  // --- Bulk Actions ---
+  const toggleGroupSelection = (groupId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(groupId)) {
+      newSelected.delete(groupId);
+    } else {
+      newSelected.add(groupId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleAllSelection = (filteredGroups: DuplicateGroup[]) => {
+    if (selectedIds.size === filteredGroups.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredGroups.map(g => g.id)));
+    }
+  };
+
+  const handleBulkDismiss = () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+
+    // Remove groups from duplicates
+    setDuplicates(prev => prev.filter(g => !selectedIds.has(g.id)));
+
+    onAddAuditLog('Bulk Action', `Dismissed ${count} groups.`, 'info');
+    setSelectedIds(new Set());
+    setShowUndoToast(true);
+    undoTimeoutRef.current = setTimeout(() => setShowUndoToast(false), 5000);
   };
 
   // --- Export ---
@@ -503,7 +559,7 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
               isScanning ? 'bg-blue-400 cursor-wait' : (user.isQuickBooksConnected || user.isXeroConnected) ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg' : 'bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg'
             }`}>
             {isScanning ? <RotateCcw className="animate-spin" size={18} /> : <Play size={18} />}
-            <span>{isScanning ? 'Scanning...' : (user.isQuickBooksConnected || user.isXeroConnected) ? `Scan Live${user.isQuickBooksConnected && user.isXeroConnected ? ' (QB + Xero)' : user.isXeroConnected ? ' Xero' : ' QB'}` : 'Run Demo Scan'}</span>
+            <span>{isScanning ? 'Scanning...' : 'Run New Scan'}</span>
           </button>
         </div>
       </div>
@@ -568,6 +624,25 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, user
             )}
           </div>
         </>
+      )}
+
+      {/* Bulk Action Bar (Floating) */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl z-40 flex items-center space-x-6 animate-in slide-in-from-bottom-10 fade-in duration-300 border border-slate-700">
+          <div className="font-bold flex items-center border-r border-slate-700 pr-6">
+            <span className="bg-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-xs mr-2">{selectedIds.size}</span>
+            Selected
+          </div>
+          <div className="flex items-center space-x-2">
+            <button onClick={handleBulkDismiss} className="hover:text-red-400 transition-colors flex items-center font-medium px-2 py-1">
+              <Ban size={16} className="mr-2"/> Dismiss All
+            </button>
+            <div className="w-px h-4 bg-slate-700 mx-2"></div>
+            <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white transition-colors text-sm">
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Empty State */}
