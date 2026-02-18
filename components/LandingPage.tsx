@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, PlayCircle, Zap } from 'lucide-react';
+import { ArrowRight, PlayCircle, Zap, Check } from 'lucide-react';
 import Logo from './Logo';
 import HelpCenter from './HelpCenter';
 
@@ -10,6 +10,32 @@ interface LandingPageProps {
   onStartDemo: () => void;
   onNavigateLegal: (view: 'terms' | 'privacy' | 'refund') => void;
 }
+
+const PLAN_FEATURES = {
+  'Starter': [
+    '1 Accounting Entity (QB or Xero)',
+    'Weekly Automated Scans',
+    'Basic AI Duplicate Detection',
+    'Email Support',
+    'Secure Cloud Backup'
+  ],
+  'Professional': [
+    'Up to 5 Accounting Entities',
+    'Daily Automated Scans',
+    'Advanced AI & Fuzzy Matching',
+    'Audit Logs & Team Access',
+    'Priority Email Support',
+    'Custom Exclusion Rules'
+  ],
+  'Enterprise': [
+    'Unlimited Accounting Entities',
+    'Real-time Monitoring',
+    'Custom AI Model Training',
+    'Unlimited Team Members',
+    'Dedicated Account Manager',
+    'API Access for Workflows'
+  ]
+};
 
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgrade, onStartDemo, onNavigateLegal }) => {
   const [showHelp, setShowHelp] = React.useState(false);
@@ -67,14 +93,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
             <p className="text-2xl md:text-3xl text-slate-300 leading-relaxed mb-6">
               Dup-Detect connects to <strong>QuickBooks Online & Xero</strong> to identify duplicate transactions. <span className="text-blue-400 font-semibold">Try it free for 7 days!</span>
             </p>
-            <div className="space-y-1">
-              <p className="text-lg md:text-xl text-slate-400 italic">
-                Trial includes <strong>detection only</strong>.
-              </p>
-              <p className="text-lg md:text-xl text-slate-400 italic">
-                Resolution and merging features require a paid plan.
-              </p>
-            </div>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
@@ -111,6 +129,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                         <span className="text-4xl font-bold text-slate-900">$19</span>
                         <span className="text-slate-500 ml-1">/mo</span>
                     </div>
+                    <ul className="mt-8 space-y-4 flex-1">
+                        {PLAN_FEATURES['Starter'].map((feature, i) => (
+                            <li key={i} className="flex items-start text-sm text-slate-600">
+                                <Check size={16} className="text-green-500 mr-2 mt-0.5 shrink-0" />
+                                <span>{feature}</span>
+                            </li>
+                        ))}
+                    </ul>
                     <button 
                         onClick={() => onUpgrade('Starter', '19')} 
                         className="mt-8 w-full py-3 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-500 hover:text-blue-600 text-slate-900 font-semibold rounded-lg transition-all"
@@ -127,6 +153,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                         <span className="text-4xl font-bold text-white">$49</span>
                         <span className="text-slate-400 ml-1">/mo</span>
                     </div>
+                    <ul className="mt-8 space-y-4 flex-1">
+                        {PLAN_FEATURES['Professional'].map((feature, i) => (
+                            <li key={i} className="flex items-start text-sm text-slate-300">
+                                <Check size={16} className="text-blue-400 mr-2 mt-0.5 shrink-0" />
+                                <span>{feature}</span>
+                            </li>
+                        ))}
+                    </ul>
                     <button 
                         onClick={() => onUpgrade('Professional', '49')}
                         className="mt-8 w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-blue-500/20"
@@ -142,6 +176,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                         <span className="text-4xl font-bold text-slate-900">$149</span>
                         <span className="text-slate-500 ml-1">/mo</span>
                     </div>
+                    <ul className="mt-8 space-y-4 flex-1">
+                        {PLAN_FEATURES['Enterprise'].map((feature, i) => (
+                            <li key={i} className="flex items-start text-sm text-slate-600">
+                                <Check size={16} className="text-green-500 mr-2 mt-0.5 shrink-0" />
+                                <span>{feature}</span>
+                            </li>
+                        ))}
+                    </ul>
                     <button 
                         onClick={() => onUpgrade('Enterprise', '149')}
                         className="mt-8 w-full py-3 bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-500 hover:text-blue-600 text-slate-900 font-semibold rounded-lg transition-all"

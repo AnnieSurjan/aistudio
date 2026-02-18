@@ -508,7 +508,7 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                                <Check size={14} className="text-green-600" strokeWidth={3}/>
                            </div>
                            <div>
-                               <h4 className="font-semibold text-slate-800 text-sm">5 Accounting Files</h4>
+                               <h4 className="font-semibold text-slate-800 text-sm">5 Accounting Entities</h4>
                                <p className="text-xs text-slate-500">Manage multiple entities (QB or Xero).</p>
                            </div>
                        </div>
@@ -536,7 +536,7 @@ const Dashboard: React.FC<DashboardProps> = ({ scanHistory, user, onConnectQuick
                            </div>
                            <div>
                                <h4 className="font-semibold text-slate-800 text-sm">Audit Logs & Team Access</h4>
-                               <p className="text-xs text-slate-500">Track who did what and invite 2 team members.</p>
+                               <p className="text-xs text-slate-500">Track who did what and invite team members.</p>
                            </div>
                        </div>
                    </div>
