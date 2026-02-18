@@ -35,13 +35,24 @@ const DEFAULT_USER: IUserProfile = {
 const App: React.FC = () => {
   // Router logika: URL path alapján inicializálunk
   const getInitialView = (): ViewState => {
-    const path = window.location.pathname.replace('/', '');
-    if (['terms', 'privacy', 'refund'].includes(path)) return path as ViewState;
-    return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
+    try {
+      const path = window.location.pathname.replace('/', '');
+      if (['terms', 'privacy', 'refund'].includes(path)) return path as ViewState;
+      const savedView = localStorage.getItem('dupdetect_view');
+      return (savedView as ViewState) || 'landing';
+    } catch (e) {
+      return 'landing';
+    }
   };
 
   const [currentView, setCurrentView] = useState<ViewState>(getInitialView);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('dupdetect_auth') === 'true');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return localStorage.getItem('dupdetect_auth') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -50,8 +61,15 @@ const App: React.FC = () => {
   const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
 
   const [user, setUser] = useState<IUserProfile>(() => {
-      const savedUser = localStorage.getItem('dupdetect_user');
-      return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
+      try {
+          const savedUser = localStorage.getItem('dupdetect_user');
+          if (savedUser && savedUser !== 'undefined') {
+            return JSON.parse(savedUser);
+          }
+      } catch (e) {
+          console.error("Error parsing user from localStorage", e);
+      }
+      return DEFAULT_USER;
   });
 
   // URL frissítése és nézet váltása
@@ -70,10 +88,17 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => { localStorage.setItem('dupdetect_user', JSON.stringify(user)); }, [user]);
+  useEffect(() => { 
+    try {
+      localStorage.setItem('dupdetect_user', JSON.stringify(user)); 
+    } catch (e) {}
+  }, [user]);
+
   useEffect(() => {
+    try {
       localStorage.setItem('dupdetect_view', currentView);
       localStorage.setItem('dupdetect_auth', String(isAuthenticated));
+    } catch (e) {}
   }, [currentView, isAuthenticated]);
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
@@ -115,9 +140,11 @@ const App: React.FC = () => {
     navigateTo('landing');
     setActiveTab('dashboard');
     setUser(DEFAULT_USER);
-    localStorage.removeItem('dupdetect_auth');
-    localStorage.removeItem('dupdetect_view');
-    localStorage.removeItem('dupdetect_user');
+    try {
+      localStorage.removeItem('dupdetect_auth');
+      localStorage.removeItem('dupdetect_view');
+      localStorage.removeItem('dupdetect_user');
+    } catch (e) {}
   };
 
   const handleUpgradeClick = (plan: string, price: string) => {
