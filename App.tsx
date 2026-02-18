@@ -33,7 +33,14 @@ const DEFAULT_USER: IUserProfile = {
 };
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<ViewState>(() => (localStorage.getItem('dupdetect_view') as ViewState) || 'landing');
+  // Router logika: URL path alapján inicializálunk
+  const getInitialView = (): ViewState => {
+    const path = window.location.pathname.replace('/', '');
+    if (['terms', 'privacy', 'refund'].includes(path)) return path as ViewState;
+    return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
+  };
+
+  const [currentView, setCurrentView] = useState<ViewState>(getInitialView);
   const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem('dupdetect_auth') === 'true');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
@@ -46,6 +53,22 @@ const App: React.FC = () => {
       const savedUser = localStorage.getItem('dupdetect_user');
       return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
   });
+
+  // URL frissítése és nézet váltása
+  const navigateTo = (view: ViewState) => {
+    const path = view === 'landing' ? '/' : `/${view}`;
+    window.history.pushState({}, '', path);
+    setCurrentView(view);
+  };
+
+  // Böngésző vissza gomb kezelése
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getInitialView());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   useEffect(() => { localStorage.setItem('dupdetect_user', JSON.stringify(user)); }, [user]);
   useEffect(() => {
@@ -83,13 +106,13 @@ const App: React.FC = () => {
         }));
     }
     setIsAuthenticated(true);
-    setCurrentView('app');
+    navigateTo('app');
     handleAddAuditLog('Login', 'User logged in successfully', 'info');
   };
   
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setCurrentView('landing');
+    navigateTo('landing');
     setActiveTab('dashboard');
     setUser(DEFAULT_USER);
     localStorage.removeItem('dupdetect_auth');
@@ -111,24 +134,24 @@ const App: React.FC = () => {
           }));
           handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
           setShowPaymentModal(false);
-          if (currentView === 'landing' || currentView === 'terms' || currentView === 'privacy' || currentView === 'refund') setCurrentView('auth');
+          if (['landing', 'terms', 'privacy', 'refund'].includes(currentView)) navigateTo('auth');
       }
   };
 
   // Full Page Legal Navigation
-  if (currentView === 'terms') return <TermsPage onBack={() => setCurrentView('landing')} />;
-  if (currentView === 'privacy') return <PrivacyPage onBack={() => setCurrentView('landing')} />;
-  if (currentView === 'refund') return <RefundPage onBack={() => setCurrentView('landing')} />;
+  if (currentView === 'terms') return <TermsPage onBack={() => navigateTo('landing')} />;
+  if (currentView === 'privacy') return <PrivacyPage onBack={() => navigateTo('landing')} />;
+  if (currentView === 'refund') return <RefundPage onBack={() => navigateTo('landing')} />;
 
   if (currentView === 'landing') {
     return (
       <>
         <LandingPage 
-            onGetStarted={() => setCurrentView('auth')} 
-            onLogin={() => setCurrentView('auth')}
+            onGetStarted={() => navigateTo('auth')} 
+            onLogin={() => navigateTo('auth')}
             onUpgrade={handleUpgradeClick}
             onStartDemo={() => { handleLogin(); setActiveTab('scan'); }}
-            onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => setCurrentView(view)}
+            onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway 
@@ -141,7 +164,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'auth') {
-    return <Auth onLogin={handleLogin} onBack={() => setCurrentView('landing')} />;
+    return <Auth onLogin={handleLogin} onBack={() => navigateTo('landing')} />;
   }
 
   return (
@@ -170,7 +193,7 @@ const App: React.FC = () => {
         {activeTab === 'profile' && (
             <UserProfile 
                 user={user} onManagePlan={() => handleUpgradeClick('Professional', '49')}
-                onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => setCurrentView(view)}
+                onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
             />
         )}
         <HelpCenter isOpen={showHelp} onClose={() => setShowHelp(false)} />
