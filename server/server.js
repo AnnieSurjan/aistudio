@@ -132,11 +132,41 @@ app.get('/health', (req, res) => {
 const distPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(distPath));
 
+// SEO meta overrides for standalone legal pages
+const LEGAL_PAGE_META = {
+  '/terms': {
+    title: 'Terms of Service | Dup-Detect',
+    description: 'Terms of Service for Dup-Detect, the AI-powered duplicate transaction detection service by Dat-assist Kft.',
+  },
+  '/privacy': {
+    title: 'Privacy Policy & GDPR | Dup-Detect',
+    description: 'Privacy Policy and GDPR compliance information for Dup-Detect. Learn how we protect your financial data.',
+  },
+  '/refund': {
+    title: 'Refund Policy | Dup-Detect',
+    description: 'Refund policy for Dup-Detect subscriptions. EU 14-day withdrawal rights and refund conditions.',
+  },
+};
+
 // SPA catch-all: minden nem-API route-ra a frontend index.html-t kuldjuk
 // Ha nincs frontend build, az API info-t adjuk vissza
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html');
   if (fs.existsSync(indexPath)) {
+    const meta = LEGAL_PAGE_META[req.path];
+    if (meta) {
+      // Inject page-specific meta tags for SEO
+      let html = fs.readFileSync(indexPath, 'utf8');
+      html = html.replace(
+        /<title>[^<]*<\/title>/,
+        `<title>${meta.title}</title>`
+      );
+      html = html.replace(
+        /<meta name="description" content="[^"]*"/,
+        `<meta name="description" content="${meta.description}"`
+      );
+      return res.send(html);
+    }
     res.sendFile(indexPath);
   } else {
     res.json({

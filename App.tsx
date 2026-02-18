@@ -10,6 +10,7 @@ import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
 import ErrorBoundary from './components/ErrorBoundary';
+import LegalPage from './components/LegalPage';
 import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, DuplicateGroup } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
 import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
@@ -352,6 +353,12 @@ const App: React.FC = () => {
           console.log('[Subscription] Could not fetch subscription status:', err);
       }
   };
+
+  // Standalone legal pages - render before session restore (public pages)
+  const pathname = window.location.pathname;
+  if (pathname === '/terms') return <LegalPage page="terms" />;
+  if (pathname === '/privacy') return <LegalPage page="privacy" />;
+  if (pathname === '/refund') return <LegalPage page="refund" />;
 
   // Show loading during session restore
   if (isRestoringSession) {

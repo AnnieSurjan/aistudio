@@ -248,8 +248,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLogin, onUpgr
                       </p>
                   </div>
                   <div className="flex space-x-8 text-sm font-medium">
-                      <button onClick={() => openLegal('terms')} className="hover:text-white transition-colors">Terms of Service</button>
-                      <button onClick={() => openLegal('privacy')} className="hover:text-white transition-colors">Privacy Policy</button>
+                      <a href="/terms" className="hover:text-white transition-colors">Terms of Service</a>
+                      <a href="/privacy" className="hover:text-white transition-colors">Privacy Policy</a>
+                      <a href="/refund" className="hover:text-white transition-colors">Refund Policy</a>
                       <button onClick={() => setShowHelp(true)} className="hover:text-white transition-colors">Contact Support</button>
                   </div>
               </div>
