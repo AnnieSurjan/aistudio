@@ -7,6 +7,12 @@ interface RefundPageProps {
 }
 
 const RefundPage: React.FC<RefundPageProps> = ({ onBack }) => {
+  const today = new Date().toLocaleDateString('hu-HU', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
       <nav className="border-b border-slate-100 py-4 sticky top-0 bg-white/90 backdrop-blur-md z-50">
@@ -21,7 +27,7 @@ const RefundPage: React.FC<RefundPageProps> = ({ onBack }) => {
       <main className="max-w-4xl mx-auto px-6 py-16">
         <div className="border-b border-slate-100 pb-8 mb-12">
             <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Refund Policy</h1>
-            <p className="text-slate-500">How we handle billing and cancellation.</p>
+            <p className="text-slate-500">Effective Date: {today}</p>
         </div>
 
         <div className="space-y-12">

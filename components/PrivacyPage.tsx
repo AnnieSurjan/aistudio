@@ -7,6 +7,12 @@ interface PrivacyPageProps {
 }
 
 const PrivacyPage: React.FC<PrivacyPageProps> = ({ onBack }) => {
+  const today = new Date().toLocaleDateString('hu-HU', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
       <nav className="border-b border-slate-100 py-4 sticky top-0 bg-white/90 backdrop-blur-md z-50">
@@ -22,7 +28,7 @@ const PrivacyPage: React.FC<PrivacyPageProps> = ({ onBack }) => {
         <div className="border-b border-slate-100 pb-8 mb-12 flex justify-between items-end">
             <div>
                 <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Privacy Policy</h1>
-                <p className="text-slate-500">Effective: October 26, 2023. GDPR Compliant.</p>
+                <p className="text-slate-500">Effective: {today}. GDPR Compliant.</p>
             </div>
             <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-xs font-bold flex items-center mb-1">
                 <Globe size={14} className="mr-2" /> Global Protection
@@ -51,6 +57,7 @@ const PrivacyPage: React.FC<PrivacyPageProps> = ({ onBack }) => {
                     <li><strong>Account Information:</strong> Name, email address, and company details.</li>
                     <li><strong>Financial Metadata:</strong> Transaction dates, amounts, vendor names, and descriptions synced from QuickBooks/Xero.</li>
                     <li><strong>Technical Data:</strong> IP address, browser type, and usage logs for security purposes.</li>
+                    <li><strong>Integration Tokens:</strong> Secure OAuth tokens for QuickBooks Online and Xero.</li>
                 </ul>
             </section>
 

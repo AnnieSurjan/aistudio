@@ -7,6 +7,13 @@ interface TermsPageProps {
 }
 
 const TermsPage: React.FC<TermsPageProps> = ({ onBack }) => {
+  // Dinamikusan generált mai dátum magyar formátumban
+  const today = new Date().toLocaleDateString('hu-HU', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
       {/* Navigation Header */}
@@ -25,7 +32,7 @@ const TermsPage: React.FC<TermsPageProps> = ({ onBack }) => {
       <main className="max-w-4xl mx-auto px-6 py-16">
         <div className="border-b border-slate-100 pb-8 mb-12">
             <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Terms of Service</h1>
-            <p className="text-slate-500">Effective Date: October 26, 2023. Last updated: May 20, 2024.</p>
+            <p className="text-slate-500">Effective Date: {today}</p>
         </div>
 
         <div className="space-y-12 leading-relaxed">
