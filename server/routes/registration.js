@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { getAdminClient } = require('../lib/supabase');
 const { sendVerificationEmail } = require('../lib/resend');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, verifyToken, setAuthCookie, clearAuthCookie } = require('../middleware/auth');
 
 // In-memory verification code store
 // Key: email, Value: { code, hashedPassword, name, companyName, createdAt }
@@ -145,13 +145,13 @@ router.post('/verify-email', async (req, res) => {
       companyName: pending.companyName,
     };
     const token = generateToken(verifiedUser);
+    setAuthCookie(res, token);
 
     console.log(`[Registration] User verified: ${email}, ID: ${userId}`);
 
     res.json({
       message: 'Email verified successfully',
       user: verifiedUser,
-      token,
     });
   } catch (error) {
     console.error('[Registration] Verify error:', error);
@@ -251,13 +251,82 @@ router.post('/login', async (req, res) => {
     }
 
     const token = generateToken(user);
+    setAuthCookie(res, token);
 
     console.log(`[Login] Successful login: ${email}`);
-    res.json({ message: 'Login successful', user, token });
+    res.json({ message: 'Login successful', user });
   } catch (error) {
     console.error('[Login] Error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
+});
+
+// GET /auth/me - Restore session from JWT token
+router.get('/me', async (req, res) => {
+  try {
+    const token = req.cookies?.auth_token
+      || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.split(' ')[1] : null);
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const userId = decoded.userId;
+    let user = { id: userId, email: decoded.email, name: decoded.name, companyName: '' };
+
+    // Try to get full user data from DB
+    try {
+      const supabase = getAdminClient();
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (dbUser) {
+        user.name = dbUser.name || user.name;
+        user.companyName = dbUser.company_name || '';
+        user.email = dbUser.email || user.email;
+      }
+
+      // Check QuickBooks connection (only check existence, don't return internal IDs)
+      const { data: qbToken } = await supabase
+        .from('qb_tokens')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // Check Xero connection (only check existence, don't return internal IDs)
+      const { data: xeroToken } = await supabase
+        .from('xero_tokens')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      user.isQuickBooksConnected = !!qbToken;
+      user.isXeroConnected = !!xeroToken;
+    } catch (dbErr) {
+      console.warn('[Auth/me] DB query failed, returning JWT data only:', dbErr.message);
+    }
+
+    res.json({ user });
+  } catch (error) {
+    console.error('[Auth/me] Error:', error);
+    res.status(500).json({ error: 'Failed to restore session' });
+  }
+});
+
+// POST /auth/logout - Clear auth cookie
+router.post('/logout', (req, res) => {
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;

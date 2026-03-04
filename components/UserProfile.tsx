@@ -6,6 +6,8 @@ interface UserProfileProps {
   user: IUserProfile;
   onConnectQuickBooks?: () => void;
   onConnectXero?: () => void;
+  onDisconnectQB?: () => void;
+  onDisconnectXero?: () => void;
   isConnectingQB?: boolean;
   isConnectingXero?: boolean;
   onManagePlan?: () => void;
@@ -17,7 +19,7 @@ const INITIAL_TEAM = [
   { id: 2, name: 'Mike Auditor', email: 'mike@external-audit.com', role: 'VIEWER', status: 'Pending' },
 ];
 
-const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, isConnectingQB, isConnectingXero, onManagePlan, onNavigateLegal }) => {
+const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, onConnectXero, onDisconnectQB, onDisconnectXero, isConnectingQB, isConnectingXero, onManagePlan, onNavigateLegal }) => {
   const [teamMembers, setTeamMembers] = useState(INITIAL_TEAM);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.VIEWER);
@@ -93,7 +95,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                         <p className="text-sm text-slate-500">{user.isQuickBooksConnected ? `Syncing with ${user.companyName}` : 'Connect your QuickBooks account.'}</p>
                     </div>
                 </div>
-                {user.isQuickBooksConnected ? <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">Disconnect</button> : <button onClick={onConnectQuickBooks} disabled={isConnectingQB} className="px-6 py-2.5 bg-[#2CA01C] hover:bg-[#238016] text-white rounded-lg font-bold shadow-lg shadow-green-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm">{isConnectingQB && <RotateCw className="animate-spin mr-2" size={16}/>} Connect</button>}
+                {user.isQuickBooksConnected ? (
+                    <button onClick={onDisconnectQB} className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
+                        Disconnect
+                    </button>
+                ) : (
+                    <button
+                        onClick={onConnectQuickBooks}
+                        disabled={isConnectingQB}
+                        className="px-6 py-2.5 bg-[#2CA01C] hover:bg-[#238016] text-white rounded-lg font-bold shadow-lg shadow-green-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm"
+                    >
+                        {isConnectingQB && <RotateCw className="animate-spin mr-2" size={16}/>}
+                        Connect
+                    </button>
+                )}
             </div>
 
             {/* Xero Row */}
@@ -110,7 +125,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ user, onConnectQuickBooks, on
                         <p className="text-sm text-slate-500">{user.isXeroConnected ? `Syncing with ${user.companyName}` : 'Connect your Xero organization.'}</p>
                     </div>
                 </div>
-                {user.isXeroConnected ? <button className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">Disconnect</button> : <button onClick={onConnectXero} disabled={isConnectingXero} className="px-6 py-2.5 bg-[#00b7e2] hover:bg-[#009ec3] text-white rounded-lg font-bold shadow-lg shadow-cyan-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm">{isConnectingXero && <RotateCw className="animate-spin mr-2" size={16}/>} Connect</button>}
+                {user.isXeroConnected ? (
+                    <button onClick={onDisconnectXero} className="px-5 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors text-sm">
+                        Disconnect
+                    </button>
+                ) : (
+                    <button
+                        onClick={onConnectXero}
+                        disabled={isConnectingXero}
+                        className="px-6 py-2.5 bg-[#00b7e2] hover:bg-[#009ec3] text-white rounded-lg font-bold shadow-lg shadow-cyan-900/10 transition-all flex items-center disabled:opacity-70 disabled:cursor-wait text-sm"
+                    >
+                        {isConnectingXero && <RotateCw className="animate-spin mr-2" size={16}/>}
+                        Connect
+                    </button>
+                )}
             </div>
         </div>
       </div>

@@ -9,31 +9,31 @@ import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import PaymentGateway from './components/PaymentGateway';
 import HelpCenter from './components/HelpCenter';
-import TermsPage from './components/TermsPage';
-import PrivacyPage from './components/PrivacyPage';
-import RefundPage from './components/RefundPage';
+import ErrorBoundary from './components/ErrorBoundary';
+import LegalPage from './components/LegalPage';
 import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, DuplicateGroup } from './types';
 import { MOCK_SCAN_HISTORY } from './services/mockData';
+import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
 type ViewState = 'landing' | 'auth' | 'app' | 'terms' | 'privacy' | 'refund';
 
-const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
-    { id: '1', time: '2023-11-10 14:32', user: 'Alex Accountant', action: 'Login', details: 'Successful login', type: 'info' },
-];
+const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
+
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
 
 const DEFAULT_USER: IUserProfile = {
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
-    role: UserRole.MANAGER, 
-    plan: 'Starter', 
+    role: UserRole.MANAGER,
+    plan: 'Starter',
     companyName: '',
     isQuickBooksConnected: false,
     isXeroConnected: false,
-    isTrial: true 
+    isTrial: true
 };
 
 const App: React.FC = () => {
-  // Router logika: URL path alapján inicializálunk
+  // Router: URL path alapján inicializálunk
   const getInitialView = (): ViewState => {
     try {
       const path = window.location.pathname.replace('/', '');
@@ -53,8 +53,13 @@ const App: React.FC = () => {
       return false;
     }
   });
+
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHelp, setShowHelp] = useState(false);
+  const [isConnectingQB, setIsConnectingQB] = useState(false);
+  const [isConnectingXero, setIsConnectingXero] = useState(false);
+
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
@@ -88,9 +93,9 @@ const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => { 
+  useEffect(() => {
     try {
-      localStorage.setItem('dupdetect_user', JSON.stringify(user)); 
+      localStorage.setItem('dupdetect_user', JSON.stringify(user));
     } catch (e) {}
   }, [user]);
 
@@ -120,6 +125,61 @@ const App: React.FC = () => {
       setScanHistory(prev => [newScan, ...prev]);
   };
 
+  // Session restoration: check JWT on mount
+  useEffect(() => {
+    const restoreSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const status = params.get('status');
+
+      // Skip session restore for public legal pages
+      if (['terms', 'privacy', 'refund'].includes(currentView)) {
+        setIsRestoringSession(false);
+        return;
+      }
+
+      // Try to restore session from httpOnly cookie (server validates)
+      try {
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/me`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const restored = data.user;
+          setUser(prev => ({
+            ...prev,
+            name: restored.name || prev.name,
+            email: restored.email || prev.email,
+            companyName: restored.companyName || prev.companyName,
+            isQuickBooksConnected: restored.isQuickBooksConnected || false,
+            isXeroConnected: restored.isXeroConnected || false,
+          }));
+          setIsAuthenticated(true);
+          setCurrentView('app');
+
+          // Handle OAuth redirects after confirming valid session
+          if (status === 'success') {
+            setUser(prev => ({ ...prev, isQuickBooksConnected: true, companyName: 'QuickBooks Sandbox' }));
+            handleAddAuditLog('Connection', 'QuickBooks Online Sandbox connected successfully', 'success');
+          } else if (status === 'xero_success') {
+            setUser(prev => ({ ...prev, isXeroConnected: true, xeroOrgName: 'Xero Organisation' }));
+          }
+
+          fetchSubscriptionStatus();
+        }
+      } catch (err) {
+        console.log('[Session] Could not restore session:', err);
+      }
+
+      // Clean OAuth redirect params from URL
+      if (status) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      setIsRestoringSession(false);
+    };
+
+    restoreSession();
+  }, []);
+
   const handleLogin = (data?: { name: string; email: string; companyName: string }) => {
     if (data) {
         setUser(prev => ({
@@ -127,15 +187,42 @@ const App: React.FC = () => {
             name: data.name,
             email: data.email,
             companyName: data.companyName || prev.companyName,
-            isTrial: true 
+            isTrial: true
         }));
     }
     setIsAuthenticated(true);
     navigateTo('app');
     handleAddAuditLog('Login', 'User logged in successfully', 'info');
+    fetchSubscriptionStatus();
   };
-  
-  const handleLogout = () => {
+
+  const handleStartDemo = () => {
+      const demoUser = {
+          name: 'Demo User',
+          email: 'demo@dupdetect.com',
+          role: UserRole.ADMIN,
+          plan: 'Professional',
+          companyName: 'Demo Corp Ltd.',
+          isQuickBooksConnected: true,
+          isXeroConnected: true
+      } as IUserProfile;
+
+      setUser(demoUser);
+      setIsAuthenticated(true);
+      navigateTo('app');
+      setActiveTab('scan');
+
+      handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
+      alert("Welcome to the Interactive Demo! \n\nWe have pre-loaded a sample company and connected it to both QuickBooks and Xero. \n\nClick 'Run New Scan' to see the AI in action.");
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${PRODUCTION_BACKEND_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch { /* silent - clear state regardless */ }
     setIsAuthenticated(false);
     navigateTo('landing');
     setActiveTab('dashboard');
@@ -147,6 +234,99 @@ const App: React.FC = () => {
     } catch (e) {}
   };
 
+  const handleDisconnectQB = () => {
+    setUser(prev => ({ ...prev, isQuickBooksConnected: false }));
+    handleAddAuditLog('Disconnection', 'QuickBooks disconnected', 'warning');
+  };
+
+  const handleDisconnectXero = () => {
+    setUser(prev => ({ ...prev, isXeroConnected: false }));
+    handleAddAuditLog('Disconnection', 'Xero disconnected', 'warning');
+  };
+
+  const handleConnectQuickBooks = async () => {
+      setIsConnectingQB(true);
+      const currentFrontendUrl = window.location.origin;
+      try {
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+        });
+        if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
+        const data = await response.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            throw new Error("Invalid response from backend: No redirect URL found.");
+        }
+      } catch (error) {
+          console.error("Connection failed:", error);
+          alert("Could not connect to the backend server. Please ensure your backend is running and accessible.");
+          setIsConnectingQB(false);
+      }
+  };
+
+  const handleConnectXero = async () => {
+      setIsConnectingXero(true);
+      const currentFrontendUrl = window.location.origin;
+      try {
+        const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+        });
+        if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
+        const data = await response.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            throw new Error("Invalid response from backend: No redirect URL found.");
+        }
+      } catch (error) {
+          console.error("Xero connection failed:", error);
+          alert("Could not connect to the backend server for Xero. Please ensure your backend is running and accessible.");
+          setIsConnectingXero(false);
+      }
+  };
+
+  const handleExport = () => {
+      const csvContent = "data:text/csv;charset=utf-8,ID,Date,Amount,Entity,Reason\nTXN-001,2023-10-25,1500.00,Acme Corp,Exact Match";
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "duplicates.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      handleAddAuditLog('Export', 'Duplicate transactions exported to CSV', 'info');
+  };
+
+  // Sanitize CSV cell to prevent formula injection (=, +, -, @, tab, cr)
+  const csvSafe = (val: string): string => {
+    const escaped = val.replace(/"/g, '""');
+    if (/^[=+\-@\t\r]/.test(escaped)) return `"'${escaped}"`;
+    return `"${escaped}"`;
+  };
+
+  const handleExportAuditLogs = () => {
+    if (auditLogs.length === 0) { alert("No logs to export."); return; }
+    const headers = ['Timestamp', 'User', 'Action', 'Details', 'Type'];
+    const rows = auditLogs.map(log => [
+      csvSafe(log.time), csvSafe(log.user), csvSafe(log.action), csvSafe(log.details), csvSafe(log.type)
+    ].join(','));
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    handleAddAuditLog('Export', `Exported ${auditLogs.length} audit log entries`, 'info');
+  };
+
   const handleUpgradeClick = (plan: string, price: string) => {
       setSelectedPlan({ name: plan, price: price });
       setShowPaymentModal(true);
@@ -154,36 +334,66 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          setUser(prev => ({ 
-              ...prev, 
+          setUser(prev => ({
+              ...prev,
               plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise',
-              isTrial: false 
+              isTrial: false
           }));
-          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name}`, 'success');
+          handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name} via Paddle`, 'success');
           setShowPaymentModal(false);
           if (['landing', 'terms', 'privacy', 'refund'].includes(currentView)) navigateTo('auth');
       }
   };
 
-  // Full Page Legal Navigation
-  if (currentView === 'terms') return <TermsPage onBack={() => navigateTo('landing')} />;
-  if (currentView === 'privacy') return <PrivacyPage onBack={() => navigateTo('landing')} />;
-  if (currentView === 'refund') return <RefundPage onBack={() => navigateTo('landing')} />;
+  const fetchSubscriptionStatus = async () => {
+      try {
+          const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/paddle/subscription`, {
+              credentials: 'include',
+          });
+          if (response.ok) {
+              const data = await response.json();
+              if (data.plan && data.plan !== 'Starter') {
+                  setUser(prev => ({ ...prev, plan: data.plan }));
+              }
+          }
+      } catch (err) {
+          console.log('[Subscription] Could not fetch subscription status:', err);
+      }
+  };
+
+  // Standalone legal pages - render before session restore (public pages)
+  if (currentView === 'terms') return <LegalPage page="terms" />;
+  if (currentView === 'privacy') return <LegalPage page="privacy" />;
+  if (currentView === 'refund') return <LegalPage page="refund" />;
+
+  // Show loading during session restore
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (currentView === 'landing') {
     return (
       <>
-        <LandingPage 
-            onGetStarted={() => navigateTo('auth')} 
+        <LandingPage
+            onGetStarted={() => navigateTo('auth')}
             onLogin={() => navigateTo('auth')}
             onUpgrade={handleUpgradeClick}
-            onStartDemo={() => { handleLogin(); setActiveTab('scan'); }}
+            onStartDemo={handleStartDemo}
             onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
         />
         {showPaymentModal && selectedPlan && (
-            <PaymentGateway 
-                planName={selectedPlan.name} price={selectedPlan.price}
-                onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess}
+            <PaymentGateway
+                planName={selectedPlan.name}
+                price={selectedPlan.price}
+                onClose={() => setShowPaymentModal(false)}
+                onSuccess={handlePaymentSuccess}
             />
         )}
       </>
@@ -195,44 +405,138 @@ const App: React.FC = () => {
   }
 
   return (
+    <ErrorBoundary>
     <div className="font-sans text-slate-900 bg-slate-50 min-h-screen">
-      <Layout 
-        activeTab={activeTab} setActiveTab={setActiveTab} user={user}
-        onLogout={handleLogout} onShowHelp={() => setShowHelp(true)}
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        user={user}
+        onLogout={handleLogout}
+        onShowHelp={() => setShowHelp(true)}
       >
         {activeTab === 'dashboard' && (
-            <Dashboard 
-                scanHistory={scanHistory} user={user}
-                onConnectQuickBooks={() => {}} onConnectXero={() => {}}
-                isConnectingQB={false} isConnectingXero={false}
+            <Dashboard
+                scanHistory={scanHistory}
+                user={user}
+                onConnectQuickBooks={handleConnectQuickBooks}
+                onConnectXero={handleConnectXero}
+                isConnectingQB={isConnectingQB}
+                isConnectingXero={isConnectingXero}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'scan' && (
-            <ScanManager 
-                onExport={() => {}} user={user}
+            <ScanManager
+                onExport={handleExport}
+                user={user}
                 onAddAuditLog={handleAddAuditLog}
                 onScanComplete={handleScanComplete}
                 onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'history' && <CalendarView history={scanHistory} />}
+
+        {activeTab === 'users' && (
+             <div className="text-center py-20 bg-white rounded-xl border border-slate-200 shadow-sm mt-4">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <Users className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700">User Management</h3>
+                <p className="text-slate-500 max-w-sm mx-auto mt-2">Manage team roles, permissions, and audit logs. This feature is available in the Enterprise plan.</p>
+                <button
+                    onClick={() => handleUpgradeClick('Enterprise', '149')}
+                    className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                    Upgrade to Enterprise
+                </button>
+             </div>
+        )}
+
+        {activeTab === 'audit' && (
+            <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">Audit Logs</h2>
+                        <p className="text-slate-500">Track all sensitive actions performed within the application.</p>
+                    </div>
+                    <button onClick={handleExportAuditLogs} className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                        <FileText size={16} className="mr-1"/> Export Logs
+                    </button>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Timestamp</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">User</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Action</th>
+                                <th className="px-6 py-3 font-semibold text-slate-700 text-sm">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {auditLogs.map((log, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    <td className="px-6 py-3 text-slate-600 text-sm font-mono">{log.time}</td>
+                                    <td className="px-6 py-3 text-slate-800 text-sm font-medium">{log.user}</td>
+                                    <td className="px-6 py-3 text-sm">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                            log.type === 'danger' ? 'bg-red-100 text-red-700' :
+                                            log.type === 'warning' ? 'bg-orange-100 text-orange-700' :
+                                            log.type === 'success' ? 'bg-green-100 text-green-700' :
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {log.action}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-slate-500 text-sm">{log.details}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {auditLogs.length === 0 && (
+                        <div className="p-8 text-center text-slate-500">No logs available.</div>
+                    )}
+                </div>
+            </div>
+        )}
+
         {activeTab === 'profile' && (
-            <UserProfile 
-                user={user} onManagePlan={() => handleUpgradeClick('Professional', '49')}
+            <UserProfile
+                user={user}
+                onConnectQuickBooks={handleConnectQuickBooks}
+                onConnectXero={handleConnectXero}
+                onDisconnectQB={handleDisconnectQB}
+                onDisconnectXero={handleDisconnectXero}
+                isConnectingQB={isConnectingQB}
+                isConnectingXero={isConnectingXero}
+                onManagePlan={() => {
+                   if (user.plan === 'Starter') {
+                       handleUpgradeClick('Professional', '49');
+                   } else if (user.plan === 'Professional') {
+                       handleUpgradeClick('Enterprise', '149');
+                   } else {
+                       const portal = window.confirm("You are on the highest tier. Open Customer Billing Portal?");
+                       if(portal) handleAddAuditLog('Billing', 'User accessed billing portal', 'info');
+                   }
+                }}
                 onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
             />
         )}
+
         <HelpCenter isOpen={showHelp} onClose={() => setShowHelp(false)} />
       </Layout>
+
       {showPaymentModal && selectedPlan && (
-        <PaymentGateway 
-            planName={selectedPlan.name} price={selectedPlan.price}
-            onClose={() => setShowPaymentModal(false)} onSuccess={handlePaymentSuccess}
+        <PaymentGateway
+            planName={selectedPlan.name}
+            price={selectedPlan.price}
+            onClose={() => setShowPaymentModal(false)}
+            onSuccess={handlePaymentSuccess}
         />
       )}
       <ChatAssistant />
     </div>
+    </ErrorBoundary>
   );
 };
 
