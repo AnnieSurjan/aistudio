@@ -15,10 +15,8 @@ import { UserProfile as IUserProfile, UserRole, ScanResult, AuditLogEntry, Dupli
 import { MOCK_SCAN_HISTORY } from './services/mockData';
 import { HelpCircle, Users, ShieldAlert, FileText, ArrowDown } from 'lucide-react';
 
-type ViewState = 'landing' | 'auth' | 'app';
+type ViewState = 'landing' | 'auth' | 'app' | 'terms' | 'privacy' | 'refund';
 
-// This is the target URL for your backend API.
-// Ensure this matches your running backend URL (e.g. localhost:3000 or your Render URL)
 const PRODUCTION_BACKEND_URL = 'https://dupdetect-frontend.onrender.com';
 
 const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
@@ -27,20 +25,33 @@ const DEFAULT_USER: IUserProfile = {
     name: 'Alex Accountant',
     email: 'alex@finance-pro.com',
     role: UserRole.MANAGER,
-    plan: 'Starter', // Default to starter
-    companyName: '', // Empty by default, will be populated upon connection
+    plan: 'Starter',
+    companyName: '',
     isQuickBooksConnected: false,
-    isXeroConnected: false
+    isXeroConnected: false,
+    isTrial: true
 };
 
 const App: React.FC = () => {
-  // Initialize state from localStorage if available (UI state only, NOT auth tokens)
-  const [currentView, setCurrentView] = useState<ViewState>(() => {
-      return (localStorage.getItem('dupdetect_view') as ViewState) || 'landing';
-  });
+  // Router: URL path alapján inicializálunk
+  const getInitialView = (): ViewState => {
+    try {
+      const path = window.location.pathname.replace('/', '');
+      if (['terms', 'privacy', 'refund'].includes(path)) return path as ViewState;
+      const savedView = localStorage.getItem('dupdetect_view');
+      return (savedView as ViewState) || 'landing';
+    } catch (e) {
+      return 'landing';
+    }
+  };
 
+  const [currentView, setCurrentView] = useState<ViewState>(getInitialView);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
       return localStorage.getItem('dupdetect_auth') === 'true';
+    } catch (e) {
+      return false;
+    }
   });
 
   const [isRestoringSession, setIsRestoringSession] = useState(true);
@@ -49,43 +60,57 @@ const App: React.FC = () => {
   const [isConnectingQB, setIsConnectingQB] = useState(false);
   const [isConnectingXero, setIsConnectingXero] = useState(false);
 
-  // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{name: string, price: string} | null>(null);
-
-  // Legal Modal Initial State (from URL)
-  const [initialLegalTab, setInitialLegalTab] = useState<'terms' | 'privacy' | null>(null);
-
-  // Audit Log State
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(INITIAL_AUDIT_LOGS);
-
-  // Scan History State - Lifted from MOCK_SCAN_HISTORY to be dynamic
   const [scanHistory, setScanHistory] = useState<ScanResult[]>(MOCK_SCAN_HISTORY);
 
   const [user, setUser] = useState<IUserProfile>(() => {
-      const savedUser = localStorage.getItem('dupdetect_user');
-      return savedUser ? JSON.parse(savedUser) : DEFAULT_USER;
+      try {
+          const savedUser = localStorage.getItem('dupdetect_user');
+          if (savedUser && savedUser !== 'undefined') {
+            return JSON.parse(savedUser);
+          }
+      } catch (e) {
+          console.error("Error parsing user from localStorage", e);
+      }
+      return DEFAULT_USER;
   });
 
-  // Persist User changes
+  // URL frissítése és nézet váltása
+  const navigateTo = (view: ViewState) => {
+    const path = view === 'landing' ? '/' : `/${view}`;
+    window.history.pushState({}, '', path);
+    setCurrentView(view);
+  };
+
+  // Böngésző vissza gomb kezelése
   useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getInitialView());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    try {
       localStorage.setItem('dupdetect_user', JSON.stringify(user));
+    } catch (e) {}
   }, [user]);
 
-  // Persist View/Auth changes
   useEffect(() => {
+    try {
       localStorage.setItem('dupdetect_view', currentView);
       localStorage.setItem('dupdetect_auth', String(isAuthenticated));
+    } catch (e) {}
   }, [currentView, isAuthenticated]);
 
   const handleAddAuditLog = (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success' = 'info') => {
       const newLog: AuditLogEntry = {
           id: Date.now().toString(),
-          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: user.name,
-          action,
-          details,
-          type
+          time: new Date().toLocaleString(),
+          user: user.name, action, details, type
       };
       setAuditLogs(prev => [newLog, ...prev]);
   };
@@ -97,7 +122,6 @@ const App: React.FC = () => {
           duplicatesFound: results.length,
           status: 'Completed'
       };
-      // Add to history state so Dashboard and Calendar update instantly
       setScanHistory(prev => [newScan, ...prev]);
   };
 
@@ -106,11 +130,11 @@ const App: React.FC = () => {
     const restoreSession = async () => {
       const params = new URLSearchParams(window.location.search);
       const status = params.get('status');
-      const view = params.get('view');
 
-      // Handle Deep Link for Legal Pages
-      if (view === 'terms' || view === 'privacy') {
-          setInitialLegalTab(view);
+      // Skip session restore for public legal pages
+      if (['terms', 'privacy', 'refund'].includes(currentView)) {
+        setIsRestoringSession(false);
+        return;
       }
 
       // Try to restore session from httpOnly cookie (server validates)
@@ -157,29 +181,18 @@ const App: React.FC = () => {
   }, []);
 
   const handleLogin = (data?: { name: string; email: string; companyName: string }) => {
-    // If login data is provided (from registration or login form), update the user state
     if (data) {
         setUser(prev => ({
             ...prev,
             name: data.name,
             email: data.email,
-            companyName: data.companyName || prev.companyName
+            companyName: data.companyName || prev.companyName,
+            isTrial: true
         }));
     }
-
     setIsAuthenticated(true);
-    setCurrentView('app');
-
-    // Add login log
-    const log: AuditLogEntry = {
-          id: Date.now().toString(),
-          time: new Date().toLocaleString('en-US', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          user: data?.name || user.name,
-          action: 'Login',
-          details: 'User logged in successfully',
-          type: 'info'
-    };
-    setAuditLogs(prev => [log, ...prev]);
+    navigateTo('app');
+    handleAddAuditLog('Login', 'User logged in successfully', 'info');
     fetchSubscriptionStatus();
   };
 
@@ -196,7 +209,7 @@ const App: React.FC = () => {
 
       setUser(demoUser);
       setIsAuthenticated(true);
-      setCurrentView('app');
+      navigateTo('app');
       setActiveTab('scan');
 
       handleAddAuditLog('Demo', 'Started interactive demo mode', 'info');
@@ -211,14 +224,14 @@ const App: React.FC = () => {
       });
     } catch { /* silent - clear state regardless */ }
     setIsAuthenticated(false);
-    setCurrentView('landing');
+    navigateTo('landing');
     setActiveTab('dashboard');
-    localStorage.removeItem('dupdetect_auth');
-    localStorage.removeItem('dupdetect_view');
-    // We keep the user object in storage so email field could be pre-filled, but reset connection status ideally.
-    // For now, let's reset to default to simulate full logout.
     setUser(DEFAULT_USER);
-    localStorage.removeItem('dupdetect_user');
+    try {
+      localStorage.removeItem('dupdetect_auth');
+      localStorage.removeItem('dupdetect_view');
+      localStorage.removeItem('dupdetect_user');
+    } catch (e) {}
   };
 
   const handleDisconnectQB = () => {
@@ -234,19 +247,13 @@ const App: React.FC = () => {
   const handleConnectQuickBooks = async () => {
       setIsConnectingQB(true);
       const currentFrontendUrl = window.location.origin;
-
       try {
-        console.log(`Attempting to connect to backend: ${PRODUCTION_BACKEND_URL}`);
-
-        // Removed timeout signal to allow real backends (e.g. Render/Heroku free tiers) time to wake up
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/quickbooks?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
         });
-
         if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-
         const data = await response.json();
         if (data.url) {
             window.location.href = data.url;
@@ -263,16 +270,13 @@ const App: React.FC = () => {
   const handleConnectXero = async () => {
       setIsConnectingXero(true);
       const currentFrontendUrl = window.location.origin;
-
       try {
         const response = await fetch(`${PRODUCTION_BACKEND_URL}/auth/xero?redirectUri=${encodeURIComponent(currentFrontendUrl)}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
         });
-
         if (!response.ok) throw new Error(`Backend Error ${response.status}: ${response.statusText}`);
-
         const data = await response.json();
         if (data.url) {
             window.location.href = data.url;
@@ -323,7 +327,6 @@ const App: React.FC = () => {
     handleAddAuditLog('Export', `Exported ${auditLogs.length} audit log entries`, 'info');
   };
 
-  // Payment Handlers
   const handleUpgradeClick = (plan: string, price: string) => {
       setSelectedPlan({ name: plan, price: price });
       setShowPaymentModal(true);
@@ -331,10 +334,14 @@ const App: React.FC = () => {
 
   const handlePaymentSuccess = () => {
       if (selectedPlan) {
-          setUser(prev => ({ ...prev, plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise' }));
+          setUser(prev => ({
+              ...prev,
+              plan: selectedPlan.name as 'Starter' | 'Professional' | 'Enterprise',
+              isTrial: false
+          }));
           handleAddAuditLog('Upgrade', `Plan upgraded to ${selectedPlan.name} via Paddle`, 'success');
           setShowPaymentModal(false);
-          if (currentView === 'landing') setCurrentView('auth');
+          if (['landing', 'terms', 'privacy', 'refund'].includes(currentView)) navigateTo('auth');
       }
   };
 
@@ -355,10 +362,9 @@ const App: React.FC = () => {
   };
 
   // Standalone legal pages - render before session restore (public pages)
-  const pathname = window.location.pathname;
-  if (pathname === '/terms') return <LegalPage page="terms" />;
-  if (pathname === '/privacy') return <LegalPage page="privacy" />;
-  if (pathname === '/refund') return <LegalPage page="refund" />;
+  if (currentView === 'terms') return <LegalPage page="terms" />;
+  if (currentView === 'privacy') return <LegalPage page="privacy" />;
+  if (currentView === 'refund') return <LegalPage page="refund" />;
 
   // Show loading during session restore
   if (isRestoringSession) {
@@ -376,11 +382,11 @@ const App: React.FC = () => {
     return (
       <>
         <LandingPage
-            onGetStarted={() => setCurrentView('auth')}
-            onLogin={() => setCurrentView('auth')}
+            onGetStarted={() => navigateTo('auth')}
+            onLogin={() => navigateTo('auth')}
             onUpgrade={handleUpgradeClick}
             onStartDemo={handleStartDemo}
-            initialLegalTab={initialLegalTab}
+            onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
         />
         {showPaymentModal && selectedPlan && (
             <PaymentGateway
@@ -395,12 +401,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'auth') {
-    return (
-      <Auth
-        onLogin={handleLogin}
-        onBack={() => setCurrentView('landing')}
-      />
-    );
+    return <Auth onLogin={handleLogin} onBack={() => navigateTo('landing')} />;
   }
 
   return (
@@ -430,6 +431,7 @@ const App: React.FC = () => {
                 user={user}
                 onAddAuditLog={handleAddAuditLog}
                 onScanComplete={handleScanComplete}
+                onUpgrade={() => handleUpgradeClick('Professional', '49')}
             />
         )}
         {activeTab === 'history' && <CalendarView history={scanHistory} />}
@@ -517,18 +519,13 @@ const App: React.FC = () => {
                        if(portal) handleAddAuditLog('Billing', 'User accessed billing portal', 'info');
                    }
                 }}
+                onNavigateLegal={(view: 'terms' | 'privacy' | 'refund') => navigateTo(view)}
             />
         )}
 
-        {/* Help Center Component */}
-        <HelpCenter
-            isOpen={showHelp}
-            onClose={() => setShowHelp(false)}
-        />
-
+        <HelpCenter isOpen={showHelp} onClose={() => setShowHelp(false)} />
       </Layout>
 
-      {/* Global Payment Modal - can be triggered from anywhere */}
       {showPaymentModal && selectedPlan && (
         <PaymentGateway
             planName={selectedPlan.name}
@@ -537,15 +534,7 @@ const App: React.FC = () => {
             onSuccess={handlePaymentSuccess}
         />
       )}
-
       <ChatAssistant />
-      <button
-        onClick={() => setShowHelp(true)}
-        className="fixed bottom-24 right-6 w-10 h-10 bg-slate-800 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-700 z-40 transition-colors border border-slate-700"
-        title="Help & Support"
-      >
-        <HelpCircle size={20} />
-      </button>
     </div>
     </ErrorBoundary>
   );
