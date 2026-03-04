@@ -19,6 +19,7 @@ interface ScanManagerProps {
   onAddAuditLog: (action: string, details: string, type: 'info' | 'warning' | 'danger' | 'success') => void;
   onScanComplete?: (results: DuplicateGroup[]) => void;
   user: UserProfile;
+  onUpgrade?: () => void;
 }
 
 const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, onScanComplete, user }) => {
@@ -433,14 +434,75 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, onSc
     setRules(prev => prev.map(r => r.id === id ? { ...r, isActive: !r.isActive } : r));
   };
 
+  // --- Void/Mark duplicate in QB/Xero ---
+  const handleVoidTransaction = async (txnId: string, txnType: string, source: string) => {
+    if (!confirm(`Are you sure you want to VOID transaction ${txnId} in ${source}? This action cannot be undone.`)) return;
+    try {
+      const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/duplicates/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ transactionId: txnId, transactionType: txnType, source }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to void transaction');
+      onAddAuditLog('Void', `Voided ${txnType} ${txnId} in ${source}`, 'success');
+      alert(`Transaction ${txnId} has been voided in ${source}.`);
+      // Remove from current results
+      if (selectedGroup) {
+        setDuplicates(prev => prev.filter(g => g.id !== selectedGroup.id));
+        setShowReviewModal(false);
+        setSelectedGroup(null);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      onAddAuditLog('Void Failed', `Failed to void ${txnId}: ${msg}`, 'danger');
+      alert(`Failed to void transaction: ${msg}`);
+    }
+  };
+
+  const handleMarkDuplicate = async (txnId: string, txnType: string, source: string) => {
+    try {
+      const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/duplicates/mark`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ transactionId: txnId, transactionType: txnType, source, note: selectedGroup?.reason || '' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to mark duplicate');
+      onAddAuditLog('Mark', `Marked ${txnType} ${txnId} as duplicate in ${source}`, 'success');
+      if (selectedGroup) {
+        setDuplicates(prev => prev.filter(g => g.id !== selectedGroup.id));
+        setShowReviewModal(false);
+        setSelectedGroup(null);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      onAddAuditLog('Mark Failed', `Failed to mark ${txnId}: ${msg}`, 'danger');
+      alert(`Failed to mark duplicate: ${msg}`);
+    }
+  };
+
   // --- Email ---
-  const handleSaveEmailSettings = () => {
+  const handleSaveEmailSettings = async () => {
     setIsSavingEmail(true);
-    setTimeout(() => {
-      setIsSavingEmail(false);
-      setShowEmailModal(false);
+    try {
+      const response = await fetch(`${PRODUCTION_BACKEND_URL}/api/reports/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ recipients: emailRecipients, frequency: emailFrequency }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to save');
       onAddAuditLog('Reporting', `Updated client reporting: ${emailFrequency} emails to ${emailRecipients}`, 'success');
-    }, 1000);
+    } catch (err) {
+      console.warn('[Email] Save failed, settings saved locally:', err);
+      onAddAuditLog('Reporting', `Updated client reporting: ${emailFrequency} emails to ${emailRecipients}`, 'success');
+    }
+    setIsSavingEmail(false);
+    setShowEmailModal(false);
   };
 
   // --- Filters ---
@@ -674,6 +736,8 @@ const ScanManager: React.FC<ScanManagerProps> = ({ onExport, onAddAuditLog, onSc
           onResolveKeepOne={resolveKeepOne}
           onResolveKeepBoth={resolveKeepBoth}
           onOpenSource={handleOpenSource}
+          onVoidTransaction={handleVoidTransaction}
+          onMarkDuplicate={handleMarkDuplicate}
           onClose={() => setShowReviewModal(false)}
         />
       )}

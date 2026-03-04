@@ -194,6 +194,87 @@ router.post('/resend-code', async (req, res) => {
   }
 });
 
+// POST /auth/verify-2fa - Verify 2FA code during login
+router.post('/verify-2fa', async (req, res) => {
+  try {
+    const { tempToken, code } = req.body;
+
+    if (!tempToken || !code) {
+      return res.status(400).json({ error: 'Temporary token and 2FA code are required' });
+    }
+
+    let decoded;
+    try {
+      decoded = verifyToken(tempToken);
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const userId = decoded.userId;
+    const supabase = getAdminClient();
+
+    const { data: twoFa } = await supabase
+      .from('user_2fa')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!twoFa || !twoFa.is_enabled) {
+      return res.status(400).json({ error: '2FA is not enabled for this account' });
+    }
+
+    // Try TOTP verification
+    const { verifyTOTP } = require('./two-factor');
+    let isValid = verifyTOTP(twoFa.totp_secret, code);
+
+    // If TOTP fails, try recovery codes
+    if (!isValid && code.includes('-')) {
+      const hashedCode = crypto.createHash('sha256').update(code.toUpperCase()).digest('hex');
+      const recoveryIndex = (twoFa.recovery_codes || []).indexOf(hashedCode);
+
+      if (recoveryIndex !== -1) {
+        isValid = true;
+        // Remove used recovery code
+        const updatedCodes = [...twoFa.recovery_codes];
+        updatedCodes.splice(recoveryIndex, 1);
+        await supabase
+          .from('user_2fa')
+          .update({ recovery_codes: updatedCodes })
+          .eq('user_id', userId);
+      }
+    }
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Invalid 2FA code' });
+    }
+
+    // 2FA verified - issue full auth token
+    const user = { id: userId, email: decoded.email, name: decoded.name };
+    const token = generateToken(user);
+    setAuthCookie(res, token);
+
+    // Get full user data
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('name, company_name')
+      .eq('id', userId)
+      .maybeSingle();
+
+    console.log(`[Login] 2FA verified for: ${decoded.email}`);
+    res.json({
+      message: 'Login successful',
+      user: {
+        ...user,
+        name: dbUser?.name || user.name,
+        companyName: dbUser?.company_name || '',
+      },
+    });
+  } catch (error) {
+    console.error('[Login] 2FA verify error:', error);
+    res.status(500).json({ error: '2FA verification failed' });
+  }
+});
+
 // POST /auth/login - Login with email/password
 router.post('/login', async (req, res) => {
   try {
@@ -248,6 +329,26 @@ router.post('/login', async (req, res) => {
     } catch (dbErr) {
       console.error('[Login] DB connection failed:', dbErr.message);
       return res.status(500).json({ error: 'Login service unavailable. Please try again later.' });
+    }
+
+    // Check if user has 2FA enabled
+    try {
+      const { data: twoFa } = await supabase
+        .from('user_2fa')
+        .select('is_enabled')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (twoFa?.is_enabled) {
+        // Don't issue token yet - require 2FA code
+        // Generate a temporary token that only allows 2FA verification
+        const tempToken = generateToken({ ...user, pending2FA: true });
+        console.log(`[Login] 2FA required for: ${email}`);
+        return res.json({ message: '2FA required', requires2FA: true, tempToken, user: { email: user.email } });
+      }
+    } catch (dbErr) {
+      // If 2FA table doesn't exist, skip 2FA check
+      console.warn('[Login] 2FA check skipped:', dbErr.message);
     }
 
     const token = generateToken(user);

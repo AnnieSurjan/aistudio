@@ -52,6 +52,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
   const [isHuman, setIsHuman] = useState(false);
   const [isCheckingHuman, setIsCheckingHuman] = useState(false);
 
+  // 2FA State
+  const [show2FA, setShow2FA] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [tempToken, setTempToken] = useState('');
+
   // Reset captcha and errors when switching modes
   useEffect(() => {
     setIsHuman(false);
@@ -82,6 +87,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
       // --- Login ---
       const { ok, data } = await callBackend('/auth/login', { email, password });
       setIsLoading(false);
+
+      if (ok && data.requires2FA) {
+        // 2FA required - show 2FA input
+        setTempToken(data.tempToken);
+        setShow2FA(true);
+        return;
+      }
 
       if (ok && data.user) {
         // Token is now set as httpOnly cookie by the server
@@ -126,6 +138,21 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
     }
   };
 
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setIsLoading(true);
+
+    const { ok, data } = await callBackend('/auth/verify-2fa', { tempToken, code: twoFACode });
+    setIsLoading(false);
+
+    if (ok && data.user) {
+      onLogin(data.user);
+    } else {
+      setErrorMsg(data.error || '2FA verification failed');
+    }
+  };
+
   const handleResendCode = async () => {
     setErrorMsg('');
     setIsLoading(true);
@@ -164,8 +191,46 @@ const Auth: React.FC<AuthProps> = ({ onLogin, onBack }) => {
           </div>
         )}
 
-        {/* Verification View */}
-        {showVerification ? (
+        {/* 2FA Verification View */}
+        {show2FA ? (
+            <div className="p-8 pt-6 animate-in fade-in slide-in-from-right duration-300">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShieldCheck size={32} />
+                </div>
+                <h2 className="text-xl font-bold text-slate-800">Two-Factor Authentication</h2>
+                <p className="text-sm text-slate-500 mt-2">Enter the 6-digit code from your authenticator app</p>
+              </div>
+              <form onSubmit={handleVerify2FA} className="space-y-6">
+                <input
+                  type="text"
+                  placeholder="000000"
+                  className="w-full text-center text-2xl tracking-widest py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-mono"
+                  value={twoFACode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Allow digits for TOTP or alphanumeric+dash for recovery codes
+                    if (/^[\dA-Fa-f\-]*$/.test(val)) setTwoFACode(val);
+                  }}
+                  maxLength={9}
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-slate-400 text-center">You can also use a recovery code (format: XXXX-XXXX)</p>
+                <button
+                  type="submit"
+                  disabled={isLoading || (twoFACode.length < 6)}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-lg transition-colors flex justify-center items-center shadow-lg disabled:opacity-70"
+                >
+                  {isLoading ? <><Loader2 size={18} className="animate-spin mr-2" /> Verifying...</> : 'Verify'}
+                </button>
+              </form>
+              <div className="mt-4 text-center">
+                <button onClick={() => { setShow2FA(false); setTwoFACode(''); setErrorMsg(''); }}
+                  className="text-xs text-slate-400 hover:text-slate-600">Back to login</button>
+              </div>
+            </div>
+        ) : showVerification ? (
             <div className="p-8 pt-6 animate-in fade-in slide-in-from-right duration-300">
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">

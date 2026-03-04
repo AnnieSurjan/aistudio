@@ -75,6 +75,11 @@ const undoRouter = require('./routes/undo');
 const cronRouter = require('./routes/cron');
 const paddleRouter = require('./routes/paddle');
 const chatRouter = require('./routes/chat');
+const twoFactorRouter = require('./routes/two-factor');
+const emailReportsRouter = require('./routes/email-reports');
+const duplicatesRouter = require('./routes/duplicates');
+const webhooksRouter = require('./routes/webhooks');
+const entitiesRouter = require('./routes/entities');
 
 // --- Rate limiting for auth endpoints ---
 const authLimiter = rateLimit({
@@ -108,6 +113,9 @@ app.use('/api/paddle', paddleRouter);
 // Cron has its own auth (CRON_SECRET)
 app.use('/api/cron', cronRouter);
 
+// Webhook endpoints (have their own signature verification)
+app.use('/api/webhooks', webhooksRouter);
+
 // Protected API routes (JWT auth required)
 app.use('/api/companies', requireAuth, companiesRouter);
 app.use('/api/quickbooks', requireAuth, quickbooksRouter);
@@ -118,6 +126,10 @@ app.use('/api/schedule', requireAuth, scheduleRouter);
 app.use('/api/audit', requireAuth, auditRouter);
 app.use('/api/undo', requireAuth, undoRouter);
 app.use('/api/chat', requireAuth, chatRouter);
+app.use('/api/2fa', requireAuth, twoFactorRouter);
+app.use('/api/reports', requireAuth, emailReportsRouter);
+app.use('/api/duplicates', requireAuth, duplicatesRouter);
+app.use('/api/entities', requireAuth, entitiesRouter);
 
 // --- Health check endpoint (Render.com hasznalja) ---
 app.get('/health', (req, res) => {

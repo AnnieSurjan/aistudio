@@ -1,6 +1,6 @@
 import React from 'react';
 import { DuplicateGroup, UserProfile } from '../../types';
-import { X, ArrowRightLeft, AlertTriangle, ExternalLink, Check, Ban } from 'lucide-react';
+import { X, ArrowRightLeft, AlertTriangle, ExternalLink, Check, Ban, Trash2, Tag } from 'lucide-react';
 
 interface ReviewModalProps {
   selectedGroup: DuplicateGroup;
@@ -8,10 +8,21 @@ interface ReviewModalProps {
   onResolveKeepOne: (txnId: string) => void;
   onResolveKeepBoth: () => void;
   onOpenSource: (txnId: string, type: string) => void;
+  onVoidTransaction?: (txnId: string, txnType: string, source: string) => void;
+  onMarkDuplicate?: (txnId: string, txnType: string, source: string) => void;
   onClose: () => void;
 }
 
-const ReviewModal: React.FC<ReviewModalProps> = ({ selectedGroup, user, onResolveKeepOne, onResolveKeepBoth, onOpenSource, onClose }) => (
+const ReviewModal: React.FC<ReviewModalProps> = ({ selectedGroup, user, onResolveKeepOne, onResolveKeepBoth, onOpenSource, onVoidTransaction, onMarkDuplicate, onClose }) => {
+  const getSource = () => {
+    if (user.isQuickBooksConnected) return 'quickbooks';
+    if (user.isXeroConnected) return 'xero';
+    return '';
+  };
+  const source = getSource();
+  const hasLiveConnection = !!source;
+
+  return (
   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95 duration-200">
     <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col h-[90vh]">
 
@@ -91,13 +102,33 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ selectedGroup, user, onResolv
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 border-t border-slate-200">
+              <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-2">
                 <button
                   onClick={() => onResolveKeepOne(txn.id)}
                   className="w-full py-3 bg-white border border-slate-300 hover:border-green-500 hover:text-green-600 hover:bg-green-50 text-slate-700 font-bold rounded-lg transition-all shadow-sm flex items-center justify-center"
                 >
                   <Check size={18} className="mr-2" /> Keep This One
                 </button>
+                {hasLiveConnection && index === 1 && (
+                  <div className="flex gap-2">
+                    {onVoidTransaction && (
+                      <button
+                        onClick={() => onVoidTransaction(txn.id, txn.type, source)}
+                        className="flex-1 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 font-medium rounded-lg transition-all text-sm flex items-center justify-center"
+                      >
+                        <Trash2 size={14} className="mr-1" /> Void in {source === 'quickbooks' ? 'QB' : 'Xero'}
+                      </button>
+                    )}
+                    {onMarkDuplicate && (
+                      <button
+                        onClick={() => onMarkDuplicate(txn.id, txn.type, source)}
+                        className="flex-1 py-2 bg-orange-50 border border-orange-200 hover:bg-orange-100 text-orange-600 font-medium rounded-lg transition-all text-sm flex items-center justify-center"
+                      >
+                        <Tag size={14} className="mr-1" /> Mark Duplicate
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -124,5 +155,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ selectedGroup, user, onResolv
     </div>
   </div>
 );
+
+};
 
 export default ReviewModal;
